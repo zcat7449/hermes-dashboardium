@@ -1,3 +1,577 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboardium — Hermes Profiles</title>
+<style>
+:root {
+  --bg: #1a1a2e;
+  --card: #16213e;
+  --text: #e0e0e0;
+  --accent: #0f3460;
+  --green: #4ecca3;
+  --yellow: #e8c547;
+  --gray: #6c757d;
+  --red: #e74c3c;
+  --border: rgba(255,255,255,0.08);
+  --shadow: 0 4px 16px rgba(0,0,0,0.35);
+  --radius: 10px;
+  --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: "SF Mono", Menlo, Consolas, "Courier New", monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.4;
+  height: 100vh;
+  overflow: hidden;
+}
+body {
+  display: flex;
+  flex-direction: column;
+}
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
+  background: rgba(15,52,96,0.25);
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0;
+  backdrop-filter: blur(8px);
+  z-index: 10;
+}
+header h1 {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+header h1 .dot {
+  display: inline-block;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--green);
+  margin-right: 8px;
+  box-shadow: 0 0 8px var(--green);
+}
+header .conn {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px;
+  color: rgba(224,224,224,0.7);
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(0,0,0,0.2);
+}
+header .conn .pulse {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+header .conn.demo .pulse { background: var(--yellow); animation: none; }
+header .conn.error .pulse { background: var(--red); animation: none; }
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(1.4); }
+}
+main {
+  padding: 12px 24px 8px;
+  max-width: 100%;
+  width: 100%;
+  margin: 0 auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.section {
+  /* не фиксированный margin-bottom */
+}
+.section:first-of-type {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.section h2 {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: rgba(224,224,224,0.55);
+  margin-bottom: 6px;
+  display: flex; align-items: center; gap: 6px;
+  flex-shrink: 0;
+}
+.section h2 .count {
+  background: var(--accent);
+  color: var(--text);
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+}
+.top-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  flex: 1;
+  min-height: 0;
+}
+.top-grid .card {
+  /* Растягивается на всю высоту top-grid */
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  gap: 4px;
+  padding: 8px 10px;
+}
+.top-grid .card .head .name {
+  font-size: 13px;
+}
+.top-grid .card .model {
+  font-size: 9px;
+  line-height: 1.2;
+}
+.top-grid .card .task {
+  padding: 3px 6px;
+  font-size: 10px;
+  margin: 0;
+}
+.top-grid .card .task .task-id {
+  font-size: 8px;
+  margin-bottom: 0;
+}
+.top-grid .card .timer {
+  font-size: 13px;
+  padding: 0;
+  line-height: 1.2;
+}
+.top-grid .card .actions {
+  margin-top: 0;
+  gap: 4px;
+}
+.top-grid .card .actions .btn {
+  padding: 3px 6px;
+  font-size: 10px;
+}
+.top-grid .card .chat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.top-grid .card .chat .log {
+  flex: 1;
+  max-height: none;
+  min-height: 60px;
+  overflow-y: auto;
+}
+.top-grid .card .chat .row {
+  flex-shrink: 0;
+}
+.bottom-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 6px;
+  flex-shrink: 0;
+}
+.bottom-grid .card {
+  min-height: 200px;
+  padding: 8px;
+  gap: 3px;
+}
+.bottom-grid .card .model {
+  font-size: 9px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bottom-grid .card .task {
+  padding: 3px 5px;
+  font-size: 9px;
+  border-left-width: 2px;
+  margin: 0;
+}
+.bottom-grid .card .task .task-id {
+  font-size: 8px;
+}
+.bottom-grid .card .timer {
+  font-size: 12px;
+  padding: 1px 0;
+}
+.bottom-grid .card .actions {
+  margin-top: 0;
+  gap: 4px;
+}
+.bottom-grid .card .actions .btn {
+  padding: 3px 5px;
+  font-size: 9px;
+}
+.bottom-grid .card .head .name {
+  font-size: 12px;
+}
+
+/* Task queue */
+.task-queue {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 2px;
+  max-height: 80px;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+.task-queue-item {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 9px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  background: rgba(0,0,0,0.15);
+  cursor: help;
+}
+.task-queue-item:hover { background: rgba(255,255,255,0.06); }
+.task-queue-item.active {
+  background: rgba(78,204,163,0.12);
+  border-left: 2px solid var(--green);
+}
+.tq-board {
+  font-family: var(--font-mono);
+  font-size: 7px;
+  color: rgba(255,255,255,0.4);
+  min-width: 24px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tq-id {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  color: var(--text);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tq-status {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.tq-status.running { background: var(--green); box-shadow: 0 0 4px var(--green); }
+.tq-status.blocked { background: var(--yellow); }
+.tq-status.ready { background: #4fc3f7; }
+.tq-status.todo { background: var(--gray); }
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  /* min-height задаётся через top-grid .card или bottom-grid .card */
+  position: relative;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+  cursor: pointer;
+}
+.card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(78,204,163,0.4);
+}
+.card.empty-slot {
+  border: 1px dashed rgba(255,255,255,0.18);
+  background: rgba(22,33,62,0.4);
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  cursor: default;
+}
+.card.empty-slot:hover { transform: none; }
+.card.empty-slot .free-label {
+  font-size: 13px;
+  color: rgba(224,224,224,0.4);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+}
+.card.empty-slot .assign-btn {
+  background: var(--accent);
+  color: var(--text);
+  border: none;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: var(--font-ui);
+  margin-top: 8px;
+}
+.card.empty-slot .assign-btn:hover { background: #1450a0; }
+.card .head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px;
+}
+.card .name {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--text);
+  text-transform: lowercase;
+}
+.card .status-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 6px currentColor;
+}
+.card .status-dot.running { background: var(--green); color: var(--green); }
+.card .status-dot.blocked { background: var(--yellow); color: var(--yellow); }
+.card .status-dot.idle    { background: var(--gray);   color: var(--gray); }
+.card .model {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: rgba(224,224,224,0.55);
+  word-break: break-all;
+}
+.card .task {
+  background: rgba(0,0,0,0.2);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 12px;
+  border-left: 3px solid var(--accent);
+}
+.card .task .task-id {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: rgba(224,224,224,0.5);
+  margin-bottom: 2px;
+}
+.card .task .task-title {
+  color: var(--text);
+  word-break: break-word;
+}
+.card .task.idle-task {
+  border-left-color: var(--gray);
+  color: rgba(224,224,224,0.4);
+  font-style: italic;
+}
+.card .timer {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 600;
+  text-align: center;
+  padding: 4px 0;
+  color: var(--green);
+  letter-spacing: 1px;
+}
+.card .timer.idle-timer { color: var(--gray); font-size: 14px; font-weight: 400; }
+.card .actions {
+  display: flex; gap: 6px; margin-top: 4px;
+}
+.btn {
+  flex: 1;
+  background: var(--accent);
+  color: var(--text);
+  border: none;
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font-ui);
+  transition: background 0.15s;
+}
+.btn:hover { background: #1450a0; }
+.btn.optimize { background: rgba(78,204,163,0.18); color: var(--green); }
+.btn.optimize:hover { background: rgba(78,204,163,0.3); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.chat {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.chat .log {
+  background: rgba(0,0,0,0.25);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 11px;
+  max-height: 200px;
+  min-height: 80px;
+  overflow-y: auto;
+  font-family: var(--font-mono);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.chat .log .msg-you { color: var(--green); }
+.chat .log .msg-bot { color: var(--text); }
+.chat .log .empty { color: rgba(224,224,224,0.35); font-style: italic; }
+.chat .row {
+  display: flex; gap: 4px;
+}
+.chat input {
+  flex: 1;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 6px 8px;
+  border-radius: 5px;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  min-width: 0;
+}
+.chat input:focus { outline: 1px solid var(--green); border-color: var(--green); }
+.chat button {
+  background: var(--green);
+  color: #0a0a14;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: var(--font-ui);
+}
+.chat button:hover { background: #6ee0b8; }
+.chat button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Sessions */
+.session-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 100px;
+  overflow-y: auto;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 4px;
+  margin-bottom: 4px;
+}
+.session-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+  transition: background 0.1s;
+}
+.session-item:hover { background: rgba(255,255,255,0.06); }
+.session-item.active { background: rgba(78,204,163,0.12); color: var(--green); }
+.session-item .sess-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.session-item .sess-source { font-size: 8px; color: rgba(255,255,255,0.3); }
+.session-item .sess-msg-count { font-size: 9px; color: rgba(255,255,255,0.4); }
+.session-item button { opacity: 0.4; cursor: pointer; background: none; border: none; color: var(--text); padding: 0 2px; font-size: 11px; }
+.session-item:hover button { opacity: 0.8; }
+.session-item button:hover { opacity: 1; color: var(--green); }
+.session-item .sess-delete:hover { color: var(--red); }
+.sess-new {
+  background: none;
+  border: 1px dashed var(--border);
+  color: rgba(255,255,255,0.5);
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  cursor: pointer;
+  width: 100%;
+  text-align: center;
+  margin-top: 2px;
+}
+.sess-new:hover { border-color: var(--green); color: var(--green); }
+.session-item.active .sess-name { color: var(--green); font-weight: 600; }
+.session-item.active::before {
+  content: '●';
+  color: var(--green);
+  font-size: 8px;
+  margin-right: 2px;
+}
+.session-list:empty + .sess-new { margin-top: 0; }
+
+/* Filter */
+.filter-bar {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 4px;
+  flex-shrink: 0;
+}
+.filter-bar input {
+  flex: 1;
+  max-width: 400px;
+  background: rgba(0,0,0,0.25);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-family: var(--font-ui);
+  font-size: 13px;
+}
+.filter-bar input:focus { outline: 1px solid var(--green); border-color: var(--green); }
+.filter-bar .meta {
+  font-size: 12px;
+  color: rgba(224,224,224,0.5);
+  margin-left: auto;
+}
+
+@media (max-width: 1199px) {
+  .bottom-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (max-width: 900px) {
+  .top-grid { grid-template-columns: repeat(2, 1fr); }
+  .bottom-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 768px) {
+  .bottom-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 560px) {
+  .top-grid { grid-template-columns: 1fr; }
+  .bottom-grid { grid-template-columns: 1fr; }
+  main { padding: 8px 12px 4px; }
+  header { padding: 8px 12px; }
+  .section h2 { margin-bottom: 6px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+  header .conn .pulse { animation: none; }
+}
+:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1><span class="dot"></span>Dashboardium</h1>
+  <div class="conn" id="conn">
+    <span class="pulse"></span>
+    <span id="connText">live · API</span>
+  </div>
+</header>
+
+<main>
+
+  <div class="section">
+    <h2>Лидеры <span class="count" id="leadersCount">0/4</span></h2>
+    <div class="top-grid" id="topGrid"></div>
+  </div>
+
+  <div class="section">
+    <h2>Все профили <span class="count" id="allCount">0</span></h2>
+    <div class="filter-bar">
+      <input type="text" id="filterInput" placeholder="Поиск / фильтр профилей…" autocomplete="off">
+      <span class="meta" id="filterMeta"></span>
+    </div>
+    <div class="bottom-grid" id="bottomGrid"></div>
+  </div>
+
+</main>
+
+<script>
 (function () {
   'use strict';
 
@@ -5,16 +579,14 @@
   const API_BASE = (new URLSearchParams(location.search).get('api')) || '';
   const POLL_MS = 5000;
   const FETCH_TIMEOUT_MS = 15000;
-  const CHAT_TIMEOUT_MS = 120000; // чат через hermes CLI — до 120 сек
+  const CHAT_TIMEOUT_MS = 60000; // чат через hermes CLI — до 60 сек
   const LEADER_SLOTS = 4; // orchestrator, rechelok, aitrainer, +1 свободный
 
   // ---- State ----
   // profilesByName: { [name]: { name, model, task_id, task_title, task_status, started_at_ms, uptime_seconds } }
   let profilesByName = {};
   // leaders: array of 4 names (string or null)
-  let leaders = [null, null, null, null];
-  // userRoleEntries: full entries from user_role.json (for persistence)
-  let userRoleEntries = [];
+  let leaders = ['orchestrator', 'rechelok', 'aitrainer', null];
   // chat log per leader name
   const chatLog = {}; // name -> [{role:'you'|'bot', text, ts}]
   // sessions: name -> [ {id, title, source, message_count, last_message_at} ]
@@ -27,15 +599,6 @@
   let optimizing = new Set(); // names currently being optimized
   // Cache flag: какие эндпоинты сессий доступны (если 404 — переходим в localStorage режим)
   let sessionsApiAvailable = true;
-  // Dropdown state
-  let addDropdownOpen = false;
-  // Pending slot for pickForSlot() — when set, add-leader assigns to this slot
-  let pendingPickSlot = null;
-  // Collapse state per leader: name -> boolean (true = collapsed chat)
-  const chatCollapsed = {}; // { [profileName]: boolean }
-  // Drag state
-  let dragSource = null; // { name, slot } or null
-  let dragOverSlot = null;
 
   // ---- DOM ----
   const el = {
@@ -47,8 +610,6 @@
     allCount: document.getElementById('allCount'),
     filterInput: document.getElementById('filterInput'),
     filterMeta: document.getElementById('filterMeta'),
-    addLeaderBtn: document.getElementById('addLeaderBtn'),
-    addLeaderDropdown: document.getElementById('addLeaderDropdown'),
   };
 
   el.filterInput.addEventListener('input', (e) => {
@@ -56,35 +617,12 @@
     render();
   });
 
-  // Close dropdown on outside click
-  document.addEventListener('click', (e) => {
-    if (addDropdownOpen && !e.target.closest('#addLeaderBtn') && !e.target.closest('#addLeaderDropdown')) {
-      addDropdownOpen = false;
-      pendingPickSlot = null;
-      el.addLeaderDropdown.classList.remove('open');
-    }
-  });
-
-  // Toggle add leader dropdown
-  if (el.addLeaderBtn) {
-    el.addLeaderBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      addDropdownOpen = !addDropdownOpen;
-      if (addDropdownOpen) {
-        renderAddDropdown();
-      } else {
-        pendingPickSlot = null;
-        el.addLeaderDropdown.classList.remove('open');
-      }
-    });
-  }
-
   // ---- Utils ----
   function esc(s) {
     if (s == null) return '';
     return String(s)
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-      .replace(/\"/g, '&quot;').replace(/'/g, '&#39;');
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
   function fmtUptime(sec) {
     sec = Math.max(0, Math.floor(sec || 0));
@@ -96,6 +634,7 @@
   }
   function fmtTokens(total) {
     if (total <= 0) return '';
+    // Показываем в K или M
     if (total >= 1000000) return (total / 1000000).toFixed(1) + 'M';
     if (total >= 1000) return (total / 1000).toFixed(1) + 'K';
     return String(total);
@@ -113,6 +652,7 @@
     return 'idle';
   }
   function normProfile(raw) {
+    // Accept flat or nested shapes
     const name = raw.name || raw.profile || raw.id;
     const ct = raw.current_task || {};
     const task_id = raw.kanban_task || raw.task_id || ct.id || null;
@@ -151,52 +691,6 @@
     return p.uptime_seconds || 0;
   }
 
-  // ---- User Role API ----
-  async function loadUserRole() {
-    try {
-      const r = await fetchJson(API_BASE + '/api/user-role');
-      const entries = (r && r.entries) || [];
-      userRoleEntries = entries;
-      // Build leaders array from entries with role='leader', sorted by order
-      const leaderEntries = entries
-        .filter(e => e.role === 'leader')
-        .sort((a, b) => a.order - b.order);
-      const newLeaders = [null, null, null, null];
-      leaderEntries.forEach((e, i) => {
-        if (i < LEADER_SLOTS) newLeaders[i] = e.profile;
-      });
-      leaders = newLeaders;
-    } catch (e) {
-      console.warn('loadUserRole error, using defaults', e);
-      // Fallback: default leaders
-      leaders = ['orchestrator', 'rechelok', 'aitrainer', null];
-    }
-  }
-
-  async function saveUserRole() {
-    const entries = [];
-    leaders.forEach((name, idx) => {
-      if (name) {
-        entries.push({
-          userId: 'user_telegram_123',
-          role: 'leader',
-          profile: name,
-          order: idx,
-        });
-      }
-    });
-    userRoleEntries = entries;
-    try {
-      await fetchJson(API_BASE + '/api/user-role', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ entries }),
-      });
-    } catch (e) {
-      console.warn('saveUserRole error', e);
-    }
-  }
-
   // ---- API ----
   async function fetchJson(url, opts, timeoutMs) {
     const ctrl = new AbortController();
@@ -209,8 +703,10 @@
       clearTimeout(t);
     }
   }
-  async function loadProfiles() {
-    const data = await fetchJson(API_BASE + '/api/profiles');
+  async function loadProfiles(focusProfile) {
+    let url = API_BASE + '/api/profiles';
+    if (focusProfile) url += '?profile=' + encodeURIComponent(focusProfile);
+    const data = await fetchJson(url);
     const list = (data && (data.profiles || data)) || [];
     if (!Array.isArray(list)) throw new Error('Bad payload');
     const map = {};
@@ -236,6 +732,8 @@
   }
 
   // ---- Sessions API ----
+  // Бэкенд может не иметь этих эндпоинтов — при 404 переходим в localStorage режим.
+  // localStorage ключ: `dash.sessions.v1.<profileName>` -> JSON array of sessions
   function lsKey(name) { return 'dash.sessions.v1.' + name; }
   function lsLoad(name) {
     try { return JSON.parse(localStorage.getItem(lsKey(name)) || '[]') || []; }
@@ -270,6 +768,7 @@
       const r = await fetchJson(API_BASE + '/api/profiles/' + encodeURIComponent(name) + '/sessions');
       return (r && r.sessions) || [];
     } catch (e) {
+      // 404 / network: fallback
       sessionsApiAvailable = false;
       return localList(name);
     }
@@ -321,6 +820,7 @@
       return 'Сессия от ' + date;
     }
     if (s && s.id) {
+      // id looks like "sess_<ts36>_<rand>" or "20260615_081835_80bac6"; extract date from the timestamp
       const m = String(s.id).match(/^sess_([a-z0-9]+)_/);
       if (m) {
         const ts = parseInt(m[1], 36);
@@ -330,6 +830,7 @@
           return 'Сессия от ' + date;
         }
       }
+      // Also handle "20260615_081835_80bac6" format
       const m2 = String(s.id).match(/^(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})_/);
       if (m2) {
         const d = new Date(+m2[1], +m2[2] - 1, +m2[3], +m2[4], +m2[5], +m2[6]);
@@ -351,25 +852,13 @@
         <span class="sess-name">${esc(display)}</span>
         ${count}
         ${source}
-        <button type="button" data-action="sess-rename" data-name="${esc(name)}" data-sid="${esc(s.id)}" title="переименовать">✎</button>
-        <button type="button" class="sess-delete" data-action="sess-delete" data-name="${esc(name)}" data-sid="${esc(s.id)}" title="удалить">✕</button>
+        <button data-action="sess-rename" data-name="${esc(name)}" data-sid="${esc(s.id)}" title="переименовать">✎</button>
+        <button class="sess-delete" data-action="sess-delete" data-name="${esc(name)}" data-sid="${esc(s.id)}" title="удалить">✕</button>
       </div>`;
     }).join('');
     return `<div class="session-list" data-session-list="${esc(name)}">${items}</div>
       <button class="sess-new" data-action="sess-new" data-name="${esc(name)}">+ Новая сессия</button>`;
   }
-  function fmtUsageStr(p) {
-    const totalTokens = p.usage_input + p.usage_output;
-    const limit = p.context_limit || 1000000;
-    const pct = typeof p.usage_percent === 'number' ? p.usage_percent : (limit > 0 ? Math.min(100, Math.round(totalTokens / limit * 100)) : 0);
-    const used = totalTokens >= 1000000 ? (totalTokens / 1000000).toFixed(1) + 'M' : totalTokens >= 1000 ? (totalTokens / 1000).toFixed(1) + 'K' : String(totalTokens);
-    const total = limit >= 1000000 ? (limit / 1000000).toFixed(0) + 'm' : limit >= 1000 ? (limit / 1000).toFixed(0) + 'k' : String(limit);
-    const barLen = 10;
-    const filled = Math.round(pct / 100 * barLen);
-    const bar = '█'.repeat(filled) + '░'.repeat(barLen - filled);
-    return `${used}/${total} │ ${bar} ${pct}%`;
-  }
-
   function renderCardBody(p, opts) {
     opts = opts || {};
     const status = p.task_status || 'idle';
@@ -386,6 +875,7 @@
     const uptimeSec = getEffectiveUptime(p);
     const timerCls = isRunning || isBlocked ? '' : 'idle-timer';
     const timer = `<div class="timer ${timerCls}" data-started="${p.started_at_ms || 0}" data-base="${isRunning || isBlocked ? Math.floor(uptimeSec) : 0}">${fmtUptime(uptimeSec)}</div>`;
+    // Task queue
     const tasks = p.tasks || [];
     const activeTaskId = p.task_id;
     const queueHtml = tasks.length > 1
@@ -396,7 +886,17 @@
           <span class="tq-status ${esc(t.status)}"></span>
         </div>`).join('')}</div>`
       : '';
-    const usageStr = fmtUsageStr(p);
+    // Usage контекста
+    const totalTokens = p.usage_input + p.usage_output;
+    const limit = p.context_limit || 1000000;
+    const pct = typeof p.usage_percent === 'number' ? p.usage_percent : (limit > 0 ? Math.min(100, Math.round(totalTokens / limit * 100)) : 0);
+    // Формат: 281.6k/1m │ [████░░░░░░] 28%
+    const used = totalTokens >= 1000000 ? (totalTokens / 1000000).toFixed(1) + 'M' : totalTokens >= 1000 ? (totalTokens / 1000).toFixed(1) + 'K' : String(totalTokens);
+    const total = limit >= 1000000 ? (limit / 1000000).toFixed(0) + 'm' : limit >= 1000 ? (limit / 1000).toFixed(0) + 'k' : String(limit);
+    const barLen = 10;
+    const filled = Math.round(pct / 100 * barLen);
+    const bar = '█'.repeat(filled) + '░'.repeat(barLen - filled);
+    const usageStr = `${used}/${total} │ ${bar} ${pct}%`;
     const modelLine = model ? `${model} │ ${usageStr}` : usageStr;
     return `
       <div class="head">
@@ -419,7 +919,15 @@
     const frag = [];
     let filled = 0;
     leaders.forEach((name, idx) => {
-      if (!name) return; // skip empty slots — we'll show one at the end
+      if (!name) {
+        frag.push(`
+          <div class="card empty-slot" data-slot="${idx}">
+            <div class="free-label">свободно</div>
+            <button class="assign-btn" data-action="pick" data-slot="${idx}">назначить</button>
+          </div>
+        `);
+        return;
+      }
       filled++;
       const p = profilesByName[name];
       if (!p) {
@@ -448,14 +956,10 @@
       const activeLabel = activeSid
         ? sessionDisplayName((sessionsMap[name] || []).find(x => x.id === activeSid) || { id: activeSid })
         : 'новая сессия';
-      const isCollapsed = chatCollapsed[name];
       frag.push(`
-        <div class="card" data-name="${esc(name)}" data-slot="${idx}" draggable="true">
-          <button type="button" class="remove-leader-btn" data-action="remove-leader" data-name="${esc(name)}" title="Удалить лидера">✕</button>
-          <div class="drag-handle" data-action="drag-handle" title="Перетащить для смены порядка">⠿</div>
-          <button type="button" class="collapse-chat-btn" data-action="toggle-chat" data-name="${esc(name)}" title="${isCollapsed ? 'Развернуть чат' : 'Свернуть чат'}">${isCollapsed ? '▸' : '▾'}</button>
+        <div class="card" data-name="${esc(name)}" data-slot="${idx}">
           ${renderCardBody(p)}
-          <div class="chat"${isCollapsed ? ' style="display:none"' : ''}>
+          <div class="chat">
             <div style="font-size:9px; color: rgba(224,224,224,0.4); margin-bottom:2px; letter-spacing:0.5px; text-transform:uppercase;">Сессии</div>
             ${sessionList}
             <div style="font-size:9px; color: rgba(224,224,224,0.4); margin: 4px 0 2px; letter-spacing:0.5px; text-transform:uppercase;">Чат · ${esc(activeLabel)}</div>
@@ -468,24 +972,6 @@
         </div>
       `);
     });
-    const emptyCount = LEADER_SLOTS - filled;
-    // Dynamic grid columns based on how many leaders are filled
-    // 1 profile → 1 column (full width)
-    // 2 profiles → 2 columns (each ~50%)
-    // 3-4 profiles → 4 columns (normal grid)
-    const gridCols = filled === 0 ? 1 : (filled <= 2 ? filled : 4);
-    if (emptyCount > 0) {
-      // In 1-2 column grids the wide empty slot should span full width
-      const slotStyle = gridCols <= 2 ? 'grid-column: 1 / -1;' : '';
-      frag.push(`
-        <div class="card empty-slot wide-slot" style="${slotStyle}">
-          <div class="free-label">свободно</div>
-          ${filled > 0 ? `<div class="free-sub">${emptyCount} слот(а) · выберите профили</div>` : ''}
-          <button class="assign-btn" data-action="pick">назначить</button>
-        </div>
-      `);
-    }
-    el.topGrid.style.gridTemplateColumns = 'repeat(' + gridCols + ', 1fr)';
     el.topGrid.innerHTML = frag.join('');
     el.leadersCount.textContent = filled + '/' + LEADER_SLOTS;
   }
@@ -518,26 +1004,6 @@
   function render() {
     renderTop();
     renderBottom();
-    renderAddDropdown();
-  }
-
-  function renderAddDropdown() {
-    if (!el.addLeaderDropdown) return;
-    if (!addDropdownOpen) {
-      el.addLeaderDropdown.classList.remove('open');
-      return;
-    }
-    const allNames = Object.keys(profilesByName).sort();
-    const leaderSet = new Set(leaders.filter(Boolean));
-    const candidates = allNames.filter(n => !leaderSet.has(n));
-    if (candidates.length === 0) {
-      el.addLeaderDropdown.innerHTML = '<div class="dd-empty">все профили уже назначены</div>';
-    } else {
-      el.addLeaderDropdown.innerHTML = candidates.map(n =>
-        `<div class="dd-item" data-action="add-leader" data-name="${esc(n)}">${esc(n)}</div>`
-      ).join('');
-    }
-    el.addLeaderDropdown.classList.add('open');
   }
 
   function setConn(state, text) {
@@ -577,13 +1043,15 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
-      }, CHAT_TIMEOUT_MS);
+      });
       const reply = (r && (r.reply || r.message || r.response)) || JSON.stringify(r);
       appendChat(name, 'bot', String(reply));
+      // Если бэкенд вернул session_id (новая сессия была создана) — зафиксируем в state
       const newSid = r && r.session_id;
       if (!sid && newSid) {
         activeSessionMap[name] = newSid;
         sessionsMap[name] = sessionsMap[name] || [];
+        // Добавим/обновим запись сессии в списке
         const existing = sessionsMap[name].find(s => s.id === newSid);
         if (!existing) {
           sessionsMap[name].unshift({ id: newSid, title: null, source: 'chat', message_count: 1, last_message_at: new Date().toISOString() });
@@ -593,6 +1061,7 @@
         }
         render();
       } else if (sid) {
+        // bump message_count на активной сессии
         const list = sessionsMap[name] || [];
         const s = list.find(x => x.id === sid);
         if (s) {
@@ -609,6 +1078,7 @@
   async function doRenameSession(name, sid, title) {
     try {
       await renameSession(name, sid, title);
+      // обновим локально
       const list = sessionsMap[name] || [];
       const s = list.find(x => x.id === sid);
       if (s) s.title = title || null;
@@ -624,6 +1094,7 @@
       const list = sessionsMap[name] || [];
       const idx = list.findIndex(x => x.id === sid);
       if (idx >= 0) list.splice(idx, 1);
+      // Если удалили активную — сбросить
       if (activeSessionMap[name] === sid) activeSessionMap[name] = null;
       render();
     } catch (e) {
@@ -635,9 +1106,11 @@
     try {
       const list = await listSessions(name);
       sessionsMap[name] = list;
+      // Если активная сессия не выбрана, а список непустой — выберем первую (самую свежую)
       if (activeSessionMap[name] === undefined && list.length > 0) {
         activeSessionMap[name] = list[0].id;
       }
+      // Загружаем сообщения для активной сессии
       const activeId = activeSessionMap[name];
       if (activeId) {
         loadSessionMessages(name, activeId);
@@ -663,14 +1136,17 @@
     }
   }
 
-  const loadedSessions = {};
+  // Загрузить сообщения сессии из API
+  const loadedSessions = {}; // name -> sid, кэш чтобы не перезагружать
   async function loadSessionMessages(name, sid) {
     if (!sid) return;
+    // Не перезагружаем если уже загружена эта сессия
     if (loadedSessions[name] === sid && chatLog[name] && chatLog[name].length > 0) return;
     loadedSessions[name] = sid;
     try {
       const r = await fetchJson(API_BASE + '/api/profiles/' + encodeURIComponent(name) + '/sessions/' + encodeURIComponent(sid) + '/messages');
       const msgs = (r && r.messages) || [];
+      // Заполняем chatLog
       chatLog[name] = [];
       for (const m of msgs) {
         if (m.role === 'user' || m.role === 'assistant') {
@@ -680,7 +1156,9 @@
           }
         }
       }
+      // Ограничим
       if (chatLog[name].length > 100) chatLog[name] = chatLog[name].slice(-100);
+      // Обновляем DOM
       const logEl = el.topGrid.querySelector(`[data-chat-log="${CSS.escape(name)}"]`);
       if (logEl) {
         logEl.innerHTML = chatLog[name].length === 0
@@ -693,76 +1171,9 @@
     }
   }
 
-  // ---- Drag & Drop ----
-  function handleDragStart(e) {
-    const card = e.target.closest('.card[data-name][data-slot]');
-    if (!card) return;
-    const name = card.dataset.name;
-    const slot = Number(card.dataset.slot);
-    dragSource = { name, slot };
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', name);
-    card.classList.add('dragging');
-  }
-
-  function handleDragOver(e) {
-    const card = e.target.closest('.card[data-name][data-slot]');
-    if (!card) return;
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    const slot = Number(card.dataset.slot);
-    if (dragOverSlot !== null && dragOverSlot !== slot) {
-      const prev = el.topGrid.querySelector(`.card[data-slot="${dragOverSlot}"]`);
-      if (prev) prev.classList.remove('drag-over');
-    }
-    dragOverSlot = slot;
-    card.classList.add('drag-over');
-  }
-
-  function handleDragEnd(e) {
-    const card = e.target.closest('.card[data-name][data-slot]');
-    if (card) card.classList.remove('dragging');
-    if (dragOverSlot !== null) {
-      const prev = el.topGrid.querySelector(`.card[data-slot="${dragOverSlot}"]`);
-      if (prev) prev.classList.remove('drag-over');
-    }
-    dragSource = null;
-    dragOverSlot = null;
-  }
-
-  function handleDrop(e) {
-    const targetCard = e.target.closest('.card[data-name][data-slot]');
-    if (!targetCard || !dragSource) return;
-    e.preventDefault();
-    const targetSlot = Number(targetCard.dataset.target);
-    const fromSlot = dragSource.slot;
-    if (fromSlot === targetSlot) return;
-
-    // Swap leaders
-    const fromName = leaders[fromSlot];
-    const toName = leaders[targetSlot];
-    leaders[fromSlot] = toName;
-    leaders[targetSlot] = fromName;
-
-    // Clean up visual state
-    targetCard.classList.remove('drag-over');
-    const fromCard = el.topGrid.querySelector(`.card[data-slot="${fromSlot}"]`);
-    if (fromCard) fromCard.classList.remove('dragging');
-
-    dragSource = null;
-    dragOverSlot = null;
-    saveUserRole().then(() => render());
-  }
-
-  // ---- Collapse Chat ----
-  function toggleChatCollapse(name) {
-    chatCollapsed[name] = !chatCollapsed[name];
-    render();
-  }
-
-  // ---- Delegate clicks ----
+  // Delegate clicks
   document.addEventListener('click', (e) => {
-    const t = e.target.dataset.action ? e.target : e.target.closest('[data-action]');
+    const t = e.target.closest('[data-action]');
     if (!t) return;
     const action = t.dataset.action;
     if (action === 'optimize') {
@@ -774,10 +1185,13 @@
       const input = el.topGrid.querySelector(`[data-chat-input="${CSS.escape(name)}"]`);
       if (input) doSend(name, input);
     } else if (action === 'promote') {
+      // Bottom card click → move to top
       const name = t.dataset.name;
       promoteToTop(name);
     } else if (action === 'pick') {
-      pickForSlot();
+      // Empty slot: assign → open picker (use first filtered non-leader)
+      const slot = Number(t.dataset.slot);
+      pickForSlot(slot);
     } else if (action === 'demote') {
       const name = t.dataset.name;
       demoteFromTop(name);
@@ -786,6 +1200,7 @@
       const name = t.dataset.name;
       const sid = t.dataset.sid;
       activeSessionMap[name] = sid;
+      // Загружаем сообщения для выбранной сессии
       loadSessionMessages(name, sid);
       render();
     } else if (action === 'sess-rename') {
@@ -796,7 +1211,7 @@
       const s = list.find(x => x.id === sid);
       const current = s ? (s.title || '') : '';
       const next = window.prompt('Новое название сессии:', current);
-      if (next === null) return;
+      if (next === null) return; // отмена
       doRenameSession(name, sid, next.trim());
     } else if (action === 'sess-delete') {
       e.stopPropagation();
@@ -807,7 +1222,10 @@
     } else if (action === 'sess-new') {
       e.stopPropagation();
       const name = t.dataset.name;
+      // Если бэкенд не имеет sessions API — создаём локально (localStorage),
+      // иначе просто сброс active (следующее сообщение получит session_id от бэка)
       if (sessionsApiAvailable) {
+        // Сначала попробуем создать на бэке сразу
         createSession(name).then(sess => {
           if (sess && sess.id) {
             sessionsMap[name] = sessionsMap[name] || [];
@@ -827,58 +1245,26 @@
           render();
         });
       } else {
+        // localStorage: создаём локально сразу
         const sess = localCreate(name);
         sessionsMap[name] = lsLoad(name);
         activeSessionMap[name] = sess.id;
         appendChat(name, 'bot', '✦ новая сессия создана (локально)');
         render();
       }
-    } else if (action === 'add-leader') {
-      e.stopPropagation();
-      const name = t.dataset.name;
-      addDropdownOpen = false;
-      el.addLeaderDropdown.classList.remove('open');
-      if (pendingPickSlot !== null) {
-        // Assign to the specific slot from pickForSlot()
-        leaders[pendingPickSlot] = name;
-        pendingPickSlot = null;
-      } else {
-        // Find first null slot
-        const nullIdx = leaders.indexOf(null);
-        if (nullIdx !== -1) {
-          leaders[nullIdx] = name;
-        } else {
-          // Shift left, drop the last
-          leaders.shift();
-          leaders.push(name);
-        }
-      }
-      saveUserRole().then(() => render());
-    } else if (action === 'remove-leader') {
-      e.stopPropagation();
-      const name = t.dataset.name;
-      const idx = leaders.indexOf(name);
-      if (idx !== -1) {
-        leaders[idx] = null;
-        saveUserRole().then(() => render());
-      }
-    } else if (action === 'toggle-chat') {
-      e.stopPropagation();
-      const name = t.dataset.name;
-      toggleChatCollapse(name);
     }
   });
 
   // Card-click handler: click on header (head) → promote/demote
   el.topGrid.addEventListener('click', (e) => {
-    const head = e.target.closest('.head');
+    const head = e.target.closest('.head'); // only header triggers demote
     if (!head) return;
     const card = head.closest('.card[data-name]');
     if (!card) return;
     demoteFromTop(card.dataset.name);
   });
   el.bottomGrid.addEventListener('click', (e) => {
-    const head = e.target.closest('.head');
+    const head = e.target.closest('.head'); // only header triggers promote
     if (!head) return;
     const card = head.closest('.card[data-name]');
     if (!card) return;
@@ -895,179 +1281,55 @@
     doSend(name, inp);
   });
 
-  // ---- Drag & Drop event listeners ----
-  el.topGrid.addEventListener('dragstart', handleDragStart);
-  el.topGrid.addEventListener('dragover', handleDragOver);
-  el.topGrid.addEventListener('dragend', handleDragEnd);
-  el.topGrid.addEventListener('drop', handleDrop);
-
   function promoteToTop(name) {
     if (!profilesByName[name]) return;
+    // If already a leader, just shift others
     if (leaders.includes(name)) return;
+    // Find first null slot
     const nullIdx = leaders.indexOf(null);
     if (nullIdx !== -1) {
       leaders[nullIdx] = name;
     } else {
+      // shift left, drop the last
       leaders.shift();
       leaders.push(name);
     }
-    saveUserRole().then(() => render());
+    render();
   }
   function demoteFromTop(name) {
     const idx = leaders.indexOf(name);
     if (idx === -1) return;
     leaders[idx] = null;
-    saveUserRole().then(() => render());
+    render();
   }
-  function pickForSlot() {
-    showProfileModal();
-  }
-
-  // ---- Profile Modal (multi-select) ----
-  let profileModalOpen = false;
-  let profileModalFilter = '';
-  let profileModalSelected = []; // array of profile names selected
-
-  function renderProfileModal() {
-    if (!profileModalOpen) return;
+  function pickForSlot(slot) {
     const allNames = Object.keys(profilesByName).sort();
     const leaderSet = new Set(leaders.filter(Boolean));
     const candidates = allNames.filter(n => !leaderSet.has(n));
-    const filtered = profileModalFilter
-      ? candidates.filter(n => n.toLowerCase().includes(profileModalFilter.toLowerCase()))
-      : candidates;
-
-    const remaining = LEADER_SLOTS - leaders.filter(Boolean).length;
-    const selectedCount = profileModalSelected.length;
-
-    const listHtml = filtered.length === 0
-      ? '<div class="profile-modal-empty">' + (profileModalFilter ? 'ничего не найдено' : 'все профили уже назначены') + '</div>'
-      : filtered.map(n => {
-          const p = profilesByName[n] || {};
-          const status = p.task_status || 'idle';
-          const model = p.model || '';
-          const isSelected = profileModalSelected.includes(n);
-          return `<div class="profile-modal-item ${isSelected ? 'selected' : ''}" data-action="pm-toggle" data-pm-name="${esc(n)}">
-            <span class="pm-check">${isSelected ? '✓' : ''}</span>
-            <span class="pm-dot ${esc(status)}"></span>
-            <span class="pm-name">${esc(n)}</span>
-            ${model ? `<span class="pm-model">${esc(model)}</span>` : ''}
-          </div>`;
-        }).join('');
-
-    // Remove existing modal
-    const old = document.querySelector('.profile-modal-overlay');
-    if (old) old.remove();
-
-    const overlay = document.createElement('div');
-    overlay.className = 'profile-modal-overlay';
-    overlay.innerHTML = `<div class="profile-modal">
-      <div class="profile-modal-header">
-        <h3>Выберите профили · <span class="pm-counter">${selectedCount}/${remaining}</span></h3>
-        <div class="profile-modal-header-btns">
-          <button class="profile-modal-close-btn" data-action="pm-close-text">Закрыть</button>
-          <button class="profile-modal-close" data-action="pm-close">&times;</button>
-        </div>
-      </div>
-      <div class="profile-modal-search">
-        <input type="text" id="pmSearchInput" placeholder="Поиск профиля…" autocomplete="off">
-      </div>
-      <div class="profile-modal-list">${listHtml}</div>
-    </div>`;
-
-    document.body.appendChild(overlay);
-
-    // Focus the search input
-    const searchInput = document.getElementById('pmSearchInput');
-    if (searchInput) {
-      searchInput.focus();
-      searchInput.addEventListener('input', (e) => {
-        profileModalFilter = e.target.value;
-        renderProfileModal();
-      });
+    if (candidates.length === 0) return;
+    // If a filter is active, prefer those; else just first
+    let pick;
+    if (filterText) {
+      pick = candidates.find(n => n.toLowerCase().includes(filterText));
     }
-
-    // Delegate click on modal items
-    overlay.addEventListener('click', (e) => {
-      // Click on overlay background itself closes modal
-      if (e.target === overlay) {
-        closeProfileModal();
-        return;
-      }
-      const t = e.target.dataset.action ? e.target : e.target.closest('[data-action]');
-      if (!t) return;
-      const action = t.dataset.action;
-      if (action === 'pm-close-text' || action === 'pm-close') {
-        closeProfileModal();
-      } else if (action === 'pm-toggle') {
-        const name = t.dataset.pmName;
-        if (!name) return;
-        const idx = profileModalSelected.indexOf(name);
-        if (idx >= 0) {
-          // Deselect
-          profileModalSelected.splice(idx, 1);
-          renderProfileModal();
-        } else {
-          // Select
-          if (profileModalSelected.length >= remaining) return; // max reached
-          profileModalSelected.push(name);
-          // Auto-close if we've selected enough to fill all remaining slots
-          if (profileModalSelected.length >= remaining) {
-            closeProfileModal();
-          } else {
-            renderProfileModal();
-          }
-        }
-      }
-    });
+    if (!pick) pick = candidates[0];
+    leaders[slot] = pick;
+    render();
   }
 
-  function showProfileModal() {
-    profileModalOpen = true;
-    profileModalFilter = '';
-    profileModalSelected = [];
-    renderProfileModal();
-  }
-
-  function closeProfileModal() {
-    // Assign selected profiles to empty slots
-    if (profileModalSelected.length > 0) {
-      let selIdx = 0;
-      for (let i = 0; i < LEADER_SLOTS && selIdx < profileModalSelected.length; i++) {
-        if (leaders[i] === null) {
-          leaders[i] = profileModalSelected[selIdx];
-          selIdx++;
-        }
-      }
-      saveUserRole().then(() => render());
-    }
-    profileModalOpen = false;
-    profileModalFilter = '';
-    profileModalSelected = [];
-    const overlay = document.querySelector('.profile-modal-overlay');
-    if (overlay) overlay.remove();
-  }
-
-  // Close modal on Escape
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && profileModalOpen) {
-      closeProfileModal();
-    }
-  });
-
-  // ---- Incremental render ----
+  // ---- Incremental render (не пересоздаёт DOM, только обновляет данные) ----
   function updateProfileData() {
+    // Обновляем только данные в существующих карточках, не трогая чат
     document.querySelectorAll('.card[data-name]').forEach(card => {
       const name = card.dataset.name;
       const p = profilesByName[name];
       if (!p) return;
 
+      // Модель
       const modelEl = card.querySelector('.model');
-      if (modelEl) {
-        const usageStr = fmtUsageStr(p);
-        modelEl.textContent = p.model ? `${p.model} │ ${usageStr}` : usageStr;
-      }
+      if (modelEl) modelEl.textContent = p.model || '—';
 
+      // Статус
       const dot = card.querySelector('.status-dot');
       if (dot) {
         const status = p.task_status || 'idle';
@@ -1075,6 +1337,7 @@
         dot.title = status;
       }
 
+      // Задача
       const taskEl = card.querySelector('.task');
       if (taskEl) {
         const taskId = taskEl.querySelector('.task-id');
@@ -1092,6 +1355,7 @@
         }
       }
 
+      // Таймер
       const timer = card.querySelector('.timer');
       if (timer) {
         const sec = p.started_at_ms ? Math.max(0, Math.floor((Date.now() - p.started_at_ms) / 1000)) : 0;
@@ -1100,6 +1364,7 @@
         timer.className = 'timer' + (p.task_status === 'idle' ? ' idle-timer' : '');
       }
 
+      // Очередь задач
       const queueEl = card.querySelector('.task-queue');
       const tasks = p.tasks || [];
       const activeTaskId = p.task_id;
@@ -1123,40 +1388,57 @@
       }
     });
 
+    // Статус коннекта
     const filled = leaders.filter(Boolean).length;
     el.leadersCount.textContent = filled + '/' + LEADER_SLOTS;
     el.allCount.textContent = Object.keys(profilesByName).length;
   }
 
+  // Полный render (только при изменении состава профилей/лидеров)
   function render() {
     renderTop();
     renderBottom();
-    renderAddDropdown();
   }
 
   // ---- Polling ----
   async function tick() {
     try {
-      const map = await loadProfiles();
+      // Определяем фокус-профиль: первый лидер (если есть)
+      // Backend получит ?profile=xxx и загрузит usage/сессии только для него,
+      // снижая нагрузку на Hermes CLI с 14 параллельных export до 1.
+      const firstLeader = leaders.filter(Boolean)[0] || null;
+      const map = await loadProfiles(firstLeader);
       const oldNames = Object.keys(profilesByName).sort().join(',');
       const newNames = Object.keys(map).sort().join(',');
 
+      // Проверяем — изменился ли список профилей или лидеров
       const oldLeaders = leaders.join(',');
       profilesByName = map;
       const known = new Set(Object.keys(map));
       leaders = leaders.map(n => (n && known.has(n)) ? n : null);
+      ['orchestrator', 'rechelok', 'aitrainer'].forEach(d => {
+        if (known.has(d) && !leaders.includes(d)) {
+          const nullIdx = leaders.indexOf(null);
+          if (nullIdx !== -1) leaders[nullIdx] = d;
+        }
+      });
       const newLeaders = leaders.join(',');
 
+      // Если состав изменился — загружаем сессии, потом рендерим
       if (oldNames !== newNames || oldLeaders !== newLeaders) {
+        // Сначала загружаем сессии для всех лидеров
         const curLeaders = leaders.filter(Boolean);
         if (curLeaders.length > 0) {
           await Promise.all(curLeaders.map(n => loadSessionsFor(n)));
         }
+        // Теперь рендерим DOM с уже загруженными сессиями
         render();
       } else {
+        // Иначе только обновляем данные
         updateProfileData();
       }
 
+      // Обновляем только счётчики, не трогаем DOM чата
       const filled = leaders.filter(Boolean).length;
       el.leadersCount.textContent = filled + '/' + LEADER_SLOTS;
       el.allCount.textContent = Object.keys(profilesByName).length;
@@ -1168,7 +1450,7 @@
     }
   }
 
-  // Uptime tick
+  // Uptime tick: update timer text locally every second
   setInterval(() => {
     document.querySelectorAll('.timer[data-base]').forEach(t => {
       const base = Number(t.dataset.base || 0);
@@ -1191,10 +1473,11 @@
   });
 
   // ---- Boot ----
-  // Load user role first, then start polling
-  loadUserRole().then(() => {
-    tick();
-    setInterval(tick, POLL_MS);
-  });
+  tick();
+  setInterval(tick, POLL_MS);
 
 })();
+</script>
+
+</body>
+</html>
