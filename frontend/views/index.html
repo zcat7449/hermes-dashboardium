@@ -91,12 +91,22 @@ main {
 }
 .section {
   /* не фиксированный margin-bottom */
+  overflow: hidden;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 .section:first-of-type {
   flex: 1;
   display: flex;
   flex-direction: column;
   min-height: 0;
+  overflow: hidden;
+}
+.section:last-of-type {
+  flex: 0 0 auto;
+  overflow-y: auto;
+  max-height: 50%;
 }
 .section h2 {
   font-size: 11px;
@@ -256,6 +266,8 @@ main {
   grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 6px;
   flex-shrink: 0;
+  overflow-y: auto;
+  max-height: 100%;
 }
 .bottom-grid .card {
   min-height: 200px;
@@ -373,58 +385,18 @@ main {
   cursor: default;
 }
 .card.empty-slot:hover { transform: none; }
-.card.empty-slot .free-label {
+.assign-btn {
+  background: var(--accent);
+  color: var(--text);
+  border: none;
+  padding: 10px 24px;
+  border-radius: 6px;
   font-size: 13px;
-  color: rgba(224,224,224,0.4);
-  text-transform: uppercase;
-  letter-spacing: 1.5px;
-}
-.card.empty-slot .assign-btn {
-  background: var(--accent);
-  color: var(--text);
-  border: none;
-  padding: 6px 14px;
-  border-radius: 6px;
-  font-size: 12px;
+  font-weight: 600;
   cursor: pointer;
   font-family: var(--font-ui);
-  margin-top: 8px;
 }
-.card.empty-slot .assign-btn:hover { background: #1450a0; }
-.empty-slot.wide-slot {
-  grid-column: span 2;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  cursor: default;
-  min-height: 240px;
-}
-.empty-slot.wide-slot .free-label {
-  font-size: 18px;
-  color: rgba(224,224,224,0.4);
-  text-transform: uppercase;
-  letter-spacing: 2px;
-  margin-bottom: 4px;
-}
-.empty-slot.wide-slot .free-sub {
-  font-size: 11px;
-  color: rgba(224,224,224,0.25);
-  margin-bottom: 12px;
-}
-.empty-slot.wide-slot .assign-btn {
-  background: var(--accent);
-  color: var(--text);
-  border: none;
-  padding: 8px 20px;
-  border-radius: 6px;
-  font-size: 14px;
-  cursor: pointer;
-  font-family: var(--font-ui);
-  transition: background 0.15s;
-}
-.empty-slot.wide-slot .assign-btn:hover { background: #1450a0; }
+.assign-btn:hover { background: #3a7fd5; }
 .card .head {
   display: flex; align-items: center; justify-content: space-between;
   gap: 8px;
@@ -907,7 +879,14 @@ main {
 
 </main>
 
-<script src="/public/dashboard.js"></script>
+<script src="/views/config.js"></script>
+<script src="/views/utils.js"></script>
+<script src="/views/state.js"></script>
+<script src="/views/api.js"></script>
+<script src="/views/render.js"></script>
+<script src="/views/drag-drop.js"></script>
+<script src="/views/modal.js"></script>
+<script src="/views/actions.js"></script>
 
 </body>
 </html>
