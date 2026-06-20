@@ -34,6 +34,12 @@
     if (D.optimizing.has(name)) return;
     D.optimizing.add(name);
     R.renderAll();
+    // Try WebSocket first
+    if (A.wsSend({ type: 'optimize', profile: name })) {
+      // Response will come via WS onmessage → handleWsMessage
+      return;
+    }
+    // Fallback to REST
     try {
       await A.postOptimize(name);
       R.appendChat(name, 'bot', '✓ контекст оптимизирован');
@@ -50,8 +56,14 @@
     if (!text) return;
     input.value = '';
     R.appendChat(name, 'you', text);
+    const sid = D.activeSessionMap[name];
+    // Try WebSocket first
+    if (A.wsSend({ type: 'chat', profile: name, message: text, session_id: sid || undefined })) {
+      // Response will come via WS onmessage → handleWsMessage
+      return;
+    }
+    // Fallback to REST
     try {
-      const sid = D.activeSessionMap[name];
       const r = await A.postChat(name, text, sid);
       const reply = (r && (r.reply || r.message || r.response)) || JSON.stringify(r);
       R.appendChat(name, 'bot', String(reply));
@@ -103,22 +115,6 @@
       R.renderAll();
     } catch (e) {
       R.appendChat(name, 'bot', '⚠ delete error: ' + e.message);
-    }
-  }
-
-  async function loadSessionsFor(name) {
-    try {
-      const list = await A.listSessions(name);
-      D.sessionsMap[name] = list;
-      if (D.activeSessionMap[name] === undefined && list.length > 0) {
-        D.activeSessionMap[name] = list[0].id;
-      }
-      const activeId = D.activeSessionMap[name];
-      if (activeId) {
-        await A.loadSessionMessages(name, activeId);
-      }
-    } catch (e) {
-      D.sessionsMap[name] = [];
     }
   }
 
@@ -239,7 +235,7 @@
           D.leaders.push(name);
         }
       }
-      loadSessionsFor(name);
+      A.loadSessionsFor(name);
       A.saveUserRole().then(() => R.renderAll());
     } else if (action === 'remove-leader') {
       e.stopPropagation();
@@ -281,8 +277,11 @@
     doSend(name, inp);
   });
 
-  // Polling
+  // Polling / WebSocket
+  // tick() is kept for manual refresh (R key) and as REST fallback
   async function tick() {
+    // If WebSocket is connected, server pushes updates — no need to poll.
+    // Manual refresh (R key) still does a REST poll for instant feedback.
     try {
       const map = await A.loadProfiles();
       const oldNames = Object.keys(D.profilesByName).sort().join(',');
@@ -297,7 +296,7 @@
       if (oldNames !== newNames || oldLeaders !== newLeaders) {
         const curLeaders = D.leaders.filter(Boolean);
         if (curLeaders.length > 0) {
-          await Promise.all(curLeaders.map(n => loadSessionsFor(n)));
+          await Promise.all(curLeaders.map(n => A.loadSessionsFor(n)));
         }
         R.renderAll();
       } else {
@@ -338,13 +337,15 @@
   // Boot
   A.loadUserRole().then(() => {
     Drag.attachListeners();
-    tick();
-    setInterval(tick, C.POLL_MS);
+    // Do initial REST poll to populate data immediately
+    tick().then(() => {
+      // Then connect WebSocket for real-time updates
+      A.wsConnect();
+    });
   });
 
-  // Expose helpers used by Actions
+  // Expose helpers used by other modules
   window.Dashboard.Actions = {
-    loadSessionsFor,
     promoteToTop,
     demoteFromTop,
     toggleChatCollapse,

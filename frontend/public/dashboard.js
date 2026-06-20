@@ -3,18 +3,27 @@
 
   // ---- Config ----
   const API_BASE = (new URLSearchParams(location.search).get('api')) || '';
+  const WS_URL = (() => {
+    const u = new URL(API_BASE || location.origin);
+    u.protocol = u.protocol === 'https:' ? 'wss:' : 'ws:';
+    u.pathname = '/ws';
+    return u.toString();
+  })();
   const POLL_MS = 5000;
   const FETCH_TIMEOUT_MS = 15000;
   const CHAT_TIMEOUT_MS = 120000;
   const LEADER_SLOTS = 4;
+  const WS_RECONNECT_DELAYS = [1000, 2000, 5000, 10000, 30000]; // backoff for WS reconnect
 
   window.Dashboard = window.Dashboard || {};
   const Config = window.Dashboard.Config = {
     API_BASE,
+    WS_URL,
     POLL_MS,
     FETCH_TIMEOUT_MS,
     CHAT_TIMEOUT_MS,
     LEADER_SLOTS,
+    WS_RECONNECT_DELAYS,
   };
 })();
 (function () {
@@ -381,7 +390,255 @@
     renameSession,
     deleteSession,
     loadSessionMessages,
+    loadSessionsFor,
+    // WebSocket
+    wsConnect,
+    wsSend,
+    wsClose,
+    // Internal reconnect is handled by wsReconnect().
+    wsReconnect,
   };
+
+  // ---- Sessions loading (used by both WS handler and REST fallback) ----
+  async function loadSessionsFor(name) {
+    try {
+      const list = await listSessions(name);
+      D.sessionsMap[name] = list;
+      if (D.activeSessionMap[name] === undefined && list.length > 0) {
+        D.activeSessionMap[name] = list[0].id;
+      }
+      const activeId = D.activeSessionMap[name];
+      if (activeId) {
+        await loadSessionMessages(name, activeId);
+      }
+    } catch (e) {
+      D.sessionsMap[name] = [];
+    }
+  }
+
+  // ---- WebSocket (replaces polling) ----
+  let ws = null;
+  let wsReconnectAttempt = 0;
+  let wsReconnectTimer = null;
+  let wsPollFallbackTimer = null;
+
+  function wsConnect() {
+    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+
+    try {
+      ws = new WebSocket(C.WS_URL);
+    } catch (e) {
+      console.warn('ws: failed to create WebSocket, falling back to REST polling', e);
+      startRestPolling();
+      return;
+    }
+
+    ws.onopen = () => {
+      console.log('ws: connected');
+      wsReconnectAttempt = 0;
+      D.connState = 'live';
+      R.setConn('live', 'live · WS · ' + Object.keys(D.profilesByName).length);
+      // Stop REST fallback if it was running
+      stopRestPolling();
+    };
+
+    ws.onmessage = (event) => {
+      let msg;
+      try {
+        msg = JSON.parse(event.data);
+      } catch {
+        return;
+      }
+      handleWsMessage(msg);
+    };
+
+    ws.onclose = (event) => {
+      console.log('ws: disconnected', event.code, event.reason);
+      ws = null;
+      // Fallback to REST polling while reconnecting
+      startRestPolling();
+      wsScheduleReconnect();
+    };
+
+    ws.onerror = (err) => {
+      console.error('ws: error', err);
+      // onclose will fire after onerror
+    };
+  }
+
+  function wsSend(data) {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(data));
+      return true;
+    }
+    return false;
+  }
+
+  function wsClose() {
+    if (wsReconnectTimer) {
+      clearTimeout(wsReconnectTimer);
+      wsReconnectTimer = null;
+    }
+    stopRestPolling();
+    if (ws) {
+      ws.close();
+      ws = null;
+    }
+  }
+
+  function wsReconnect() {
+    wsScheduleReconnect();
+  }
+
+  function wsScheduleReconnect() {
+    if (wsReconnectTimer) clearTimeout(wsReconnectTimer);
+    const delay = C.WS_RECONNECT_DELAYS[Math.min(wsReconnectAttempt, C.WS_RECONNECT_DELAYS.length - 1)];
+    wsReconnectAttempt++;
+    console.log('ws: reconnecting in ' + delay + 'ms (attempt ' + wsReconnectAttempt + ')');
+    wsReconnectTimer = setTimeout(() => {
+      wsConnect();
+    }, delay);
+  }
+
+  function startRestPolling() {
+    if (wsPollFallbackTimer) return; // already running
+    console.log('ws: starting REST polling fallback');
+    restPollTick(); // immediate first poll
+    wsPollFallbackTimer = setInterval(restPollTick, C.POLL_MS);
+  }
+
+  function stopRestPolling() {
+    if (wsPollFallbackTimer) {
+      clearInterval(wsPollFallbackTimer);
+      wsPollFallbackTimer = null;
+    }
+  }
+
+  async function restPollTick() {
+    try {
+      const map = await loadProfiles();
+      const oldNames = Object.keys(D.profilesByName).sort().join(',');
+      const newNames = Object.keys(map).sort().join(',');
+
+      const oldLeaders = D.leaders.join(',');
+      D.profilesByName = map;
+      const known = new Set(Object.keys(map));
+      D.leaders = D.leaders.map(n => (n && known.has(n)) ? n : null);
+      const newLeaders = D.leaders.join(',');
+
+      if (oldNames !== newNames || oldLeaders !== newLeaders) {
+        const curLeaders = D.leaders.filter(Boolean);
+        if (curLeaders.length > 0) {
+          await Promise.all(curLeaders.map(n => A.loadSessionsFor(n)));
+        }
+        R.renderAll();
+      } else {
+        R.updateProfileData();
+      }
+
+      const filled = D.leaders.filter(Boolean).length;
+      D.els.leadersCount.textContent = filled + '/' + C.LEADER_SLOTS;
+      D.els.allCount.textContent = Object.keys(D.profilesByName).length;
+      R.setConn('live', 'live · REST · ' + Object.keys(map).length);
+      D.lastError = '';
+    } catch (e) {
+      D.lastError = e.message || String(e);
+      R.setConn('error', 'error · ' + D.lastError);
+    }
+  }
+
+  function handleWsMessage(msg) {
+    switch (msg.type) {
+      case 'profiles': {
+        const list = (msg.profiles || []);
+        if (!Array.isArray(list)) return;
+        const map = {};
+        for (const raw of list) {
+          const p = U.normProfile(raw);
+          if (p.name) map[p.name] = p;
+        }
+        const oldNames = Object.keys(D.profilesByName).sort().join(',');
+        const newNames = Object.keys(map).sort().join(',');
+
+        const oldLeaders = D.leaders.join(',');
+        D.profilesByName = map;
+        const known = new Set(Object.keys(map));
+        D.leaders = D.leaders.map(n => (n && known.has(n)) ? n : null);
+        const newLeaders = D.leaders.join(',');
+
+        if (oldNames !== newNames || oldLeaders !== newLeaders) {
+          const curLeaders = D.leaders.filter(Boolean);
+          if (curLeaders.length > 0) {
+            Promise.all(curLeaders.map(n => A.loadSessionsFor(n))).then(() => R.renderAll());
+          } else {
+            R.renderAll();
+          }
+        } else {
+          R.updateProfileData();
+        }
+
+        const filled = D.leaders.filter(Boolean).length;
+        D.els.leadersCount.textContent = filled + '/' + C.LEADER_SLOTS;
+        D.els.allCount.textContent = Object.keys(D.profilesByName).length;
+        R.setConn('live', 'live · WS · ' + Object.keys(map).length);
+        D.lastError = '';
+        break;
+      }
+
+      case 'chat_response': {
+        const { profile, response, session_id, new_session } = msg;
+        R.appendChat(profile, 'bot', String(response || ''));
+        if (new_session && session_id) {
+          D.activeSessionMap[profile] = session_id;
+          D.sessionsMap[profile] = D.sessionsMap[profile] || [];
+          const existing = D.sessionsMap[profile].find(s => s.id === session_id);
+          if (!existing) {
+            D.sessionsMap[profile].unshift({ id: session_id, title: null, source: 'chat', message_count: 1, last_message_at: new Date().toISOString() });
+          } else {
+            existing.message_count = (existing.message_count || 0) + 1;
+            existing.last_message_at = new Date().toISOString();
+          }
+          R.renderAll();
+        } else if (session_id) {
+          const list = D.sessionsMap[profile] || [];
+          const s = list.find(x => x.id === session_id);
+          if (s) {
+            s.message_count = (s.message_count || 0) + 1;
+            s.last_message_at = new Date().toISOString();
+            R.renderAll();
+          }
+        }
+        break;
+      }
+
+      case 'chat_error': {
+        R.appendChat(msg.profile, 'bot', '⚠ chat error: ' + (msg.error || 'unknown'));
+        break;
+      }
+
+      case 'optimize_response': {
+        R.appendChat(msg.profile, 'bot', '✓ контекст оптимизирован');
+        D.optimizing.delete(msg.profile);
+        R.renderAll();
+        break;
+      }
+
+      case 'optimize_error': {
+        R.appendChat(msg.profile, 'bot', '⚠ optimize error: ' + (msg.error || 'unknown'));
+        D.optimizing.delete(msg.profile);
+        R.renderAll();
+        break;
+      }
+
+      case 'pong':
+        // keepalive — nothing to do
+        break;
+
+      case 'error':
+        console.warn('ws: server error', msg.error);
+        break;
+    }
+  }
 })();
 (function () {
   'use strict';
@@ -959,6 +1216,12 @@
     if (D.optimizing.has(name)) return;
     D.optimizing.add(name);
     R.renderAll();
+    // Try WebSocket first
+    if (A.wsSend({ type: 'optimize', profile: name })) {
+      // Response will come via WS onmessage → handleWsMessage
+      return;
+    }
+    // Fallback to REST
     try {
       await A.postOptimize(name);
       R.appendChat(name, 'bot', '✓ контекст оптимизирован');
@@ -975,8 +1238,14 @@
     if (!text) return;
     input.value = '';
     R.appendChat(name, 'you', text);
+    const sid = D.activeSessionMap[name];
+    // Try WebSocket first
+    if (A.wsSend({ type: 'chat', profile: name, message: text, session_id: sid || undefined })) {
+      // Response will come via WS onmessage → handleWsMessage
+      return;
+    }
+    // Fallback to REST
     try {
-      const sid = D.activeSessionMap[name];
       const r = await A.postChat(name, text, sid);
       const reply = (r && (r.reply || r.message || r.response)) || JSON.stringify(r);
       R.appendChat(name, 'bot', String(reply));
@@ -1028,22 +1297,6 @@
       R.renderAll();
     } catch (e) {
       R.appendChat(name, 'bot', '⚠ delete error: ' + e.message);
-    }
-  }
-
-  async function loadSessionsFor(name) {
-    try {
-      const list = await A.listSessions(name);
-      D.sessionsMap[name] = list;
-      if (D.activeSessionMap[name] === undefined && list.length > 0) {
-        D.activeSessionMap[name] = list[0].id;
-      }
-      const activeId = D.activeSessionMap[name];
-      if (activeId) {
-        await A.loadSessionMessages(name, activeId);
-      }
-    } catch (e) {
-      D.sessionsMap[name] = [];
     }
   }
 
@@ -1164,7 +1417,7 @@
           D.leaders.push(name);
         }
       }
-      loadSessionsFor(name);
+      A.loadSessionsFor(name);
       A.saveUserRole().then(() => R.renderAll());
     } else if (action === 'remove-leader') {
       e.stopPropagation();
@@ -1206,8 +1459,11 @@
     doSend(name, inp);
   });
 
-  // Polling
+  // Polling / WebSocket
+  // tick() is kept for manual refresh (R key) and as REST fallback
   async function tick() {
+    // If WebSocket is connected, server pushes updates — no need to poll.
+    // Manual refresh (R key) still does a REST poll for instant feedback.
     try {
       const map = await A.loadProfiles();
       const oldNames = Object.keys(D.profilesByName).sort().join(',');
@@ -1222,7 +1478,7 @@
       if (oldNames !== newNames || oldLeaders !== newLeaders) {
         const curLeaders = D.leaders.filter(Boolean);
         if (curLeaders.length > 0) {
-          await Promise.all(curLeaders.map(n => loadSessionsFor(n)));
+          await Promise.all(curLeaders.map(n => A.loadSessionsFor(n)));
         }
         R.renderAll();
       } else {
@@ -1263,13 +1519,15 @@
   // Boot
   A.loadUserRole().then(() => {
     Drag.attachListeners();
-    tick();
-    setInterval(tick, C.POLL_MS);
+    // Do initial REST poll to populate data immediately
+    tick().then(() => {
+      // Then connect WebSocket for real-time updates
+      A.wsConnect();
+    });
   });
 
-  // Expose helpers used by Actions
+  // Expose helpers used by other modules
   window.Dashboard.Actions = {
-    loadSessionsFor,
     promoteToTop,
     demoteFromTop,
     toggleChatCollapse,

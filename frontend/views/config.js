@@ -3,17 +3,26 @@
 
   // ---- Config ----
   const API_BASE = (new URLSearchParams(location.search).get('api')) || '';
+  const WS_URL = (() => {
+    const u = new URL(API_BASE || location.origin);
+    u.protocol = u.protocol === 'https:' ? 'wss:' : 'ws:';
+    u.pathname = '/ws';
+    return u.toString();
+  })();
   const POLL_MS = 5000;
   const FETCH_TIMEOUT_MS = 15000;
   const CHAT_TIMEOUT_MS = 120000;
   const LEADER_SLOTS = 4;
+  const WS_RECONNECT_DELAYS = [1000, 2000, 5000, 10000, 30000]; // backoff for WS reconnect
 
   window.Dashboard = window.Dashboard || {};
   const Config = window.Dashboard.Config = {
     API_BASE,
+    WS_URL,
     POLL_MS,
     FETCH_TIMEOUT_MS,
     CHAT_TIMEOUT_MS,
     LEADER_SLOTS,
+    WS_RECONNECT_DELAYS,
   };
 })();
