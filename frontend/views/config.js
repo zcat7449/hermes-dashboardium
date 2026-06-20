@@ -25,4 +25,21 @@
     LEADER_SLOTS,
     WS_RECONNECT_DELAYS,
   };
+
+  // Auth: prompt once, store in sessionStorage
+  const stored = sessionStorage.getItem('dashboardium_auth');
+  if (stored) {
+    Config.AUTH = stored;
+  } else {
+    // First visit — prompt for credentials
+    const u = window.prompt('Логин:');
+    if (u) {
+      const p = window.prompt('Пароль:');
+      if (p) {
+        const b64 = btoa(u + ':' + p);
+        Config.AUTH = b64;
+        sessionStorage.setItem('dashboardium_auth', b64);
+      }
+    }
+  }
 })();

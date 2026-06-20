@@ -7,6 +7,7 @@
   const R = window.Dashboard.Render;
   const Drag = window.Dashboard.DragDrop;
   const Modal = window.Dashboard.Modal;
+  const U = window.Dashboard.Utils;
 
   // ---- Filter + Dropdown wiring ----
   D.els.filterInput.addEventListener('input', (e) => {
@@ -251,21 +252,8 @@
     }
   });
 
-  // Header clicks promote/demote
-  D.els.topGrid.addEventListener('click', (e) => {
-    const head = e.target.closest('.head');
-    if (!head) return;
-    const card = head.closest('.card[data-name]');
-    if (!card) return;
-    demoteFromTop(card.dataset.name);
-  });
-  D.els.bottomGrid.addEventListener('click', (e) => {
-    const head = e.target.closest('.head');
-    if (!head) return;
-    const card = head.closest('.card[data-name]');
-    if (!card) return;
-    promoteToTop(card.dataset.name);
-  });
+  // Header clicks promote/demote — DISABLED: clicking anywhere on .head was too aggressive
+  // Use ✕ button (data-action='remove-leader') instead
 
   // Enter in chat input
   D.els.topGrid.addEventListener('keydown', (e) => {

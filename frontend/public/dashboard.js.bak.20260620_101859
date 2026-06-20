@@ -193,460 +193,6 @@
   const D = window.Dashboard.Data;
   const U = window.Dashboard.Utils;
 
-  async function fetchJson(url, opts, timeoutMs) {
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), timeoutMs || C.FETCH_TIMEOUT_MS);
-    try {
-      const r = await fetch(url, Object.assign({}, opts, { signal: ctrl.signal }));
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      return await r.json();
-    } finally {
-      clearTimeout(t);
-    }
-  }
-
-  // ---- User Role ----
-  async function loadUserRole() {
-    try {
-      const r = await fetchJson(C.API_BASE + '/api/user-role');
-      const entries = (r && r.entries) || [];
-      D.userRoleEntries = entries;
-      const leaderEntries = entries
-        .filter(e => e.role === 'leader')
-        .sort((a, b) => a.order - b.order);
-      const newLeaders = [null, null, null, null];
-      leaderEntries.forEach((e, i) => {
-        if (i < C.LEADER_SLOTS) newLeaders[i] = e.profile;
-      });
-      D.leaders = newLeaders;
-    } catch (e) {
-      console.warn('loadUserRole error, using defaults', e);
-      D.leaders = ['orchestrator', 'rechelok', 'aitrainer', null];
-    }
-  }
-
-  async function saveUserRole() {
-    const entries = [];
-    D.leaders.forEach((name, idx) => {
-      if (name) {
-        entries.push({
-          userId: 'user_telegram_123',
-          role: 'leader',
-          profile: name,
-          order: idx,
-        });
-      }
-    });
-    D.userRoleEntries = entries;
-    try {
-      await fetchJson(C.API_BASE + '/api/user-role', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ entries }),
-      });
-    } catch (e) {
-      console.warn('saveUserRole error', e);
-    }
-  }
-
-  // ---- Profiles / Chat / Optimize ----
-  async function loadProfiles() {
-    const data = await fetchJson(C.API_BASE + '/api/profiles');
-    const list = (data && (data.profiles || data)) || [];
-    if (!Array.isArray(list)) throw new Error('Bad payload');
-    const map = {};
-    for (const raw of list) {
-      const p = U.normProfile(raw);
-      if (p.name) map[p.name] = p;
-    }
-    return map;
-  }
-
-  async function postOptimize(name) {
-    return fetchJson(C.API_BASE + '/api/optimize/' + encodeURIComponent(name), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({}),
-    });
-  }
-
-  async function postChat(name, message, sid) {
-    const body = { message: message };
-    if (sid) body.session_id = sid;
-    return fetchJson(C.API_BASE + '/api/chat/' + encodeURIComponent(name), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    }, C.CHAT_TIMEOUT_MS);
-  }
-
-  function lsKey(name) { return 'dash.sessions.v1.' + name; }
-  function lsLoad(name) {
-    try { return JSON.parse(localStorage.getItem(lsKey(name)) || '[]') || []; }
-    catch (e) { return []; }
-  }
-  function lsSave(name, list) {
-    try { localStorage.setItem(lsKey(name), JSON.stringify(list)); } catch (e) {}
-  }
-  function localCreate(name) {
-    const list = lsLoad(name);
-    const id = 'sess_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);
-    const sess = { id, title: null, source: 'dashboard', message_count: 0, last_message_at: null };
-    list.unshift(sess);
-    lsSave(name, list);
-    return sess;
-  }
-  function localRename(name, id, title) {
-    const list = lsLoad(name);
-    const s = list.find(x => x.id === id);
-    if (s) s.title = title;
-    lsSave(name, list);
-  }
-  function localDelete(name, id) {
-    const list = lsLoad(name).filter(x => x.id !== id);
-    lsSave(name, list);
-  }
-  function localList(name) { return lsLoad(name); }
-
-  async function listSessions(name) {
-    if (!D.sessionsApiAvailable) return localList(name);
-    try {
-      const r = await fetchJson(C.API_BASE + '/api/profiles/' + encodeURIComponent(name) + '/sessions');
-      return (r && r.sessions) || [];
-    } catch (e) {
-      D.sessionsApiAvailable = false;
-      return localList(name);
-    }
-  }
-  async function createSession(name) {
-    if (!D.sessionsApiAvailable) return localCreate(name);
-    try {
-      return await fetchJson(C.API_BASE + '/api/profiles/' + encodeURIComponent(name) + '/sessions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      });
-    } catch (e) {
-      D.sessionsApiAvailable = false;
-      return localCreate(name);
-    }
-  }
-  async function renameSession(name, id, title) {
-    if (!D.sessionsApiAvailable) return localRename(name, id, title);
-    try {
-      return await fetchJson(C.API_BASE + '/api/profiles/' + encodeURIComponent(name) + '/sessions/' + encodeURIComponent(id), {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: title }),
-      });
-    } catch (e) {
-      D.sessionsApiAvailable = false;
-      return localRename(name, id, title);
-    }
-  }
-  async function deleteSession(name, id) {
-    if (!D.sessionsApiAvailable) return localDelete(name, id);
-    try {
-      return await fetchJson(C.API_BASE + '/api/profiles/' + encodeURIComponent(name) + '/sessions/' + encodeURIComponent(id), {
-        method: 'DELETE',
-      });
-    } catch (e) {
-      D.sessionsApiAvailable = false;
-      return localDelete(name, id);
-    }
-  }
-
-  async function loadSessionMessages(name, sid) {
-    if (!sid) return;
-    if (D.loadedSessions[name] === sid && D.chatLog[name] && D.chatLog[name].length > 0) return;
-    D.loadedSessions[name] = sid;
-    try {
-      const r = await fetchJson(C.API_BASE + '/api/profiles/' + encodeURIComponent(name) + '/sessions/' + encodeURIComponent(sid) + '/messages');
-      const msgs = (r && r.messages) || [];
-      D.chatLog[name] = [];
-      for (const m of msgs) {
-        if (m.role === 'user' || m.role === 'assistant') {
-          const text = m.content || '';
-          if (text) {
-            D.chatLog[name].push({ role: m.role === 'user' ? 'you' : 'bot', text, ts: (m.timestamp || 0) * 1000 });
-          }
-        }
-      }
-      if (D.chatLog[name].length > 100) D.chatLog[name] = D.chatLog[name].slice(-100);
-    } catch (e) {
-      console.warn('load messages error', e);
-    }
-  }
-
-  window.Dashboard.API = {
-    fetchJson,
-    loadUserRole,
-    saveUserRole,
-    loadProfiles,
-    postOptimize,
-    postChat,
-    listSessions,
-    createSession,
-    renameSession,
-    deleteSession,
-    loadSessionMessages,
-    loadSessionsFor,
-    // WebSocket
-    wsConnect,
-    wsSend,
-    wsClose,
-    // Internal reconnect is handled by wsReconnect().
-    wsReconnect,
-  };
-
-  // ---- Sessions loading (used by both WS handler and REST fallback) ----
-  async function loadSessionsFor(name) {
-    try {
-      const list = await listSessions(name);
-      D.sessionsMap[name] = list;
-      if (D.activeSessionMap[name] === undefined && list.length > 0) {
-        D.activeSessionMap[name] = list[0].id;
-      }
-      const activeId = D.activeSessionMap[name];
-      if (activeId) {
-        await loadSessionMessages(name, activeId);
-      }
-    } catch (e) {
-      D.sessionsMap[name] = [];
-    }
-  }
-
-  // ---- WebSocket (replaces polling) ----
-  let ws = null;
-  let wsReconnectAttempt = 0;
-  let wsReconnectTimer = null;
-  let wsPollFallbackTimer = null;
-
-  function wsConnect() {
-    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
-
-    try {
-      ws = new WebSocket(C.WS_URL);
-    } catch (e) {
-      console.warn('ws: failed to create WebSocket, falling back to REST polling', e);
-      startRestPolling();
-      return;
-    }
-
-    ws.onopen = () => {
-      console.log('ws: connected');
-      wsReconnectAttempt = 0;
-      D.connState = 'live';
-      R.setConn('live', 'live · WS · ' + Object.keys(D.profilesByName).length);
-      // Stop REST fallback if it was running
-      stopRestPolling();
-    };
-
-    ws.onmessage = (event) => {
-      let msg;
-      try {
-        msg = JSON.parse(event.data);
-      } catch {
-        return;
-      }
-      handleWsMessage(msg);
-    };
-
-    ws.onclose = (event) => {
-      console.log('ws: disconnected', event.code, event.reason);
-      ws = null;
-      // Fallback to REST polling while reconnecting
-      startRestPolling();
-      wsScheduleReconnect();
-    };
-
-    ws.onerror = (err) => {
-      console.error('ws: error', err);
-      // onclose will fire after onerror
-    };
-  }
-
-  function wsSend(data) {
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify(data));
-      return true;
-    }
-    return false;
-  }
-
-  function wsClose() {
-    if (wsReconnectTimer) {
-      clearTimeout(wsReconnectTimer);
-      wsReconnectTimer = null;
-    }
-    stopRestPolling();
-    if (ws) {
-      ws.close();
-      ws = null;
-    }
-  }
-
-  function wsReconnect() {
-    wsScheduleReconnect();
-  }
-
-  function wsScheduleReconnect() {
-    if (wsReconnectTimer) clearTimeout(wsReconnectTimer);
-    const delay = C.WS_RECONNECT_DELAYS[Math.min(wsReconnectAttempt, C.WS_RECONNECT_DELAYS.length - 1)];
-    wsReconnectAttempt++;
-    console.log('ws: reconnecting in ' + delay + 'ms (attempt ' + wsReconnectAttempt + ')');
-    wsReconnectTimer = setTimeout(() => {
-      wsConnect();
-    }, delay);
-  }
-
-  function startRestPolling() {
-    if (wsPollFallbackTimer) return; // already running
-    console.log('ws: starting REST polling fallback');
-    restPollTick(); // immediate first poll
-    wsPollFallbackTimer = setInterval(restPollTick, C.POLL_MS);
-  }
-
-  function stopRestPolling() {
-    if (wsPollFallbackTimer) {
-      clearInterval(wsPollFallbackTimer);
-      wsPollFallbackTimer = null;
-    }
-  }
-
-  async function restPollTick() {
-    try {
-      const map = await loadProfiles();
-      const oldNames = Object.keys(D.profilesByName).sort().join(',');
-      const newNames = Object.keys(map).sort().join(',');
-
-      const oldLeaders = D.leaders.join(',');
-      D.profilesByName = map;
-      const known = new Set(Object.keys(map));
-      D.leaders = D.leaders.map(n => (n && known.has(n)) ? n : null);
-      const newLeaders = D.leaders.join(',');
-
-      if (oldNames !== newNames || oldLeaders !== newLeaders) {
-        const curLeaders = D.leaders.filter(Boolean);
-        if (curLeaders.length > 0) {
-          await Promise.all(curLeaders.map(n => A.loadSessionsFor(n)));
-        }
-        R.renderAll();
-      } else {
-        R.updateProfileData();
-      }
-
-      const filled = D.leaders.filter(Boolean).length;
-      D.els.leadersCount.textContent = filled + '/' + C.LEADER_SLOTS;
-      D.els.allCount.textContent = Object.keys(D.profilesByName).length;
-      R.setConn('live', 'live · REST · ' + Object.keys(map).length);
-      D.lastError = '';
-    } catch (e) {
-      D.lastError = e.message || String(e);
-      R.setConn('error', 'error · ' + D.lastError);
-    }
-  }
-
-  function handleWsMessage(msg) {
-    switch (msg.type) {
-      case 'profiles': {
-        const list = (msg.profiles || []);
-        if (!Array.isArray(list)) return;
-        const map = {};
-        for (const raw of list) {
-          const p = U.normProfile(raw);
-          if (p.name) map[p.name] = p;
-        }
-        const oldNames = Object.keys(D.profilesByName).sort().join(',');
-        const newNames = Object.keys(map).sort().join(',');
-
-        const oldLeaders = D.leaders.join(',');
-        D.profilesByName = map;
-        const known = new Set(Object.keys(map));
-        D.leaders = D.leaders.map(n => (n && known.has(n)) ? n : null);
-        const newLeaders = D.leaders.join(',');
-
-        if (oldNames !== newNames || oldLeaders !== newLeaders) {
-          const curLeaders = D.leaders.filter(Boolean);
-          if (curLeaders.length > 0) {
-            Promise.all(curLeaders.map(n => A.loadSessionsFor(n))).then(() => R.renderAll());
-          } else {
-            R.renderAll();
-          }
-        } else {
-          R.updateProfileData();
-        }
-
-        const filled = D.leaders.filter(Boolean).length;
-        D.els.leadersCount.textContent = filled + '/' + C.LEADER_SLOTS;
-        D.els.allCount.textContent = Object.keys(D.profilesByName).length;
-        R.setConn('live', 'live · WS · ' + Object.keys(map).length);
-        D.lastError = '';
-        break;
-      }
-
-      case 'chat_response': {
-        const { profile, response, session_id, new_session } = msg;
-        R.appendChat(profile, 'bot', String(response || ''));
-        if (new_session && session_id) {
-          D.activeSessionMap[profile] = session_id;
-          D.sessionsMap[profile] = D.sessionsMap[profile] || [];
-          const existing = D.sessionsMap[profile].find(s => s.id === session_id);
-          if (!existing) {
-            D.sessionsMap[profile].unshift({ id: session_id, title: null, source: 'chat', message_count: 1, last_message_at: new Date().toISOString() });
-          } else {
-            existing.message_count = (existing.message_count || 0) + 1;
-            existing.last_message_at = new Date().toISOString();
-          }
-          R.renderAll();
-        } else if (session_id) {
-          const list = D.sessionsMap[profile] || [];
-          const s = list.find(x => x.id === session_id);
-          if (s) {
-            s.message_count = (s.message_count || 0) + 1;
-            s.last_message_at = new Date().toISOString();
-            R.renderAll();
-          }
-        }
-        break;
-      }
-
-      case 'chat_error': {
-        R.appendChat(msg.profile, 'bot', '⚠ chat error: ' + (msg.error || 'unknown'));
-        break;
-      }
-
-      case 'optimize_response': {
-        R.appendChat(msg.profile, 'bot', '✓ контекст оптимизирован');
-        D.optimizing.delete(msg.profile);
-        R.renderAll();
-        break;
-      }
-
-      case 'optimize_error': {
-        R.appendChat(msg.profile, 'bot', '⚠ optimize error: ' + (msg.error || 'unknown'));
-        D.optimizing.delete(msg.profile);
-        R.renderAll();
-        break;
-      }
-
-      case 'pong':
-        // keepalive — nothing to do
-        break;
-
-      case 'error':
-        console.warn('ws: server error', msg.error);
-        break;
-    }
-  }
-})();
-(function () {
-  'use strict';
-
-  const C = window.Dashboard.Config;
-  const D = window.Dashboard.Data;
-  const U = window.Dashboard.Utils;
-
   function sessionDisplayName(s) {
     if (s && s.title && s.title.trim()) return s.title.trim();
     if (s && s.last_message_at) {
@@ -975,6 +521,468 @@
 (function () {
   'use strict';
 
+  // Module version marker for cache-busting verification.
+  window.Dashboard = window.Dashboard || {};
+  window.Dashboard._api_version = 3;
+
+  const C = window.Dashboard.Config;
+  const D = window.Dashboard.Data;
+  const U = window.Dashboard.Utils;
+  // Render is loaded before api.js in index.html; use lazy access inside handlers
+  // to stay safe if module load order ever changes or cache serves stale ordering.
+  const R = window.Dashboard.Render;
+
+  function getRender() { return window.Dashboard.Render || R; }
+
+  async function fetchJson(url, opts, timeoutMs) {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), timeoutMs || C.FETCH_TIMEOUT_MS);
+    try {
+      const r = await fetch(url, Object.assign({}, opts, { signal: ctrl.signal }));
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return await r.json();
+    } finally {
+      clearTimeout(t);
+    }
+  }
+
+  // ---- User Role ----
+  async function loadUserRole() {
+    try {
+      const r = await fetchJson(C.API_BASE + '/api/user-role');
+      const entries = (r && r.entries) || [];
+      D.userRoleEntries = entries;
+      const leaderEntries = entries
+        .filter(e => e.role === 'leader')
+        .sort((a, b) => a.order - b.order);
+      const newLeaders = [null, null, null, null];
+      leaderEntries.forEach((e, i) => {
+        if (i < C.LEADER_SLOTS) newLeaders[i] = e.profile;
+      });
+      D.leaders = newLeaders;
+    } catch (e) {
+      console.warn('loadUserRole error, using defaults', e);
+      D.leaders = ['orchestrator', 'rechelok', 'aitrainer', null];
+    }
+  }
+
+  async function saveUserRole() {
+    const entries = [];
+    D.leaders.forEach((name, idx) => {
+      if (name) {
+        entries.push({
+          userId: 'user_telegram_123',
+          role: 'leader',
+          profile: name,
+          order: idx,
+        });
+      }
+    });
+    D.userRoleEntries = entries;
+    try {
+      await fetchJson(C.API_BASE + '/api/user-role', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entries }),
+      });
+    } catch (e) {
+      console.warn('saveUserRole error', e);
+    }
+  }
+
+  // ---- Profiles / Chat / Optimize ----
+  async function loadProfiles() {
+    const data = await fetchJson(C.API_BASE + '/api/profiles');
+    const list = (data && (data.profiles || data)) || [];
+    if (!Array.isArray(list)) throw new Error('Bad payload');
+    const map = {};
+    for (const raw of list) {
+      const p = U.normProfile(raw);
+      if (p.name) map[p.name] = p;
+    }
+    return map;
+  }
+
+  async function postOptimize(name) {
+    return fetchJson(C.API_BASE + '/api/optimize/' + encodeURIComponent(name), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+  }
+
+  async function postChat(name, message, sid) {
+    const body = { message: message };
+    if (sid) body.session_id = sid;
+    return fetchJson(C.API_BASE + '/api/chat/' + encodeURIComponent(name), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }, C.CHAT_TIMEOUT_MS);
+  }
+
+  function lsKey(name) { return 'dash.sessions.v1.' + name; }
+  function lsLoad(name) {
+    try { return JSON.parse(localStorage.getItem(lsKey(name)) || '[]') || []; }
+    catch (e) { return []; }
+  }
+  function lsSave(name, list) {
+    try { localStorage.setItem(lsKey(name), JSON.stringify(list)); } catch (e) {}
+  }
+  function localCreate(name) {
+    const list = lsLoad(name);
+    const id = 'sess_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);
+    const sess = { id, title: null, source: 'dashboard', message_count: 0, last_message_at: null };
+    list.unshift(sess);
+    lsSave(name, list);
+    return sess;
+  }
+  function localRename(name, id, title) {
+    const list = lsLoad(name);
+    const s = list.find(x => x.id === id);
+    if (s) s.title = title;
+    lsSave(name, list);
+  }
+  function localDelete(name, id) {
+    const list = lsLoad(name).filter(x => x.id !== id);
+    lsSave(name, list);
+  }
+  function localList(name) { return lsLoad(name); }
+
+  async function listSessions(name) {
+    if (!D.sessionsApiAvailable) return localList(name);
+    try {
+      const r = await fetchJson(C.API_BASE + '/api/profiles/' + encodeURIComponent(name) + '/sessions');
+      return (r && r.sessions) || [];
+    } catch (e) {
+      D.sessionsApiAvailable = false;
+      return localList(name);
+    }
+  }
+  async function createSession(name) {
+    if (!D.sessionsApiAvailable) return localCreate(name);
+    try {
+      return await fetchJson(C.API_BASE + '/api/profiles/' + encodeURIComponent(name) + '/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+    } catch (e) {
+      D.sessionsApiAvailable = false;
+      return localCreate(name);
+    }
+  }
+  async function renameSession(name, id, title) {
+    if (!D.sessionsApiAvailable) return localRename(name, id, title);
+    try {
+      return await fetchJson(C.API_BASE + '/api/profiles/' + encodeURIComponent(name) + '/sessions/' + encodeURIComponent(id), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: title }),
+      });
+    } catch (e) {
+      D.sessionsApiAvailable = false;
+      return localRename(name, id, title);
+    }
+  }
+  async function deleteSession(name, id) {
+    if (!D.sessionsApiAvailable) return localDelete(name, id);
+    try {
+      return await fetchJson(C.API_BASE + '/api/profiles/' + encodeURIComponent(name) + '/sessions/' + encodeURIComponent(id), {
+        method: 'DELETE',
+      });
+    } catch (e) {
+      D.sessionsApiAvailable = false;
+      return localDelete(name, id);
+    }
+  }
+
+  async function loadSessionMessages(name, sid) {
+    if (!sid) return;
+    if (D.loadedSessions[name] === sid && D.chatLog[name] && D.chatLog[name].length > 0) return;
+    D.loadedSessions[name] = sid;
+    try {
+      const r = await fetchJson(C.API_BASE + '/api/profiles/' + encodeURIComponent(name) + '/sessions/' + encodeURIComponent(sid) + '/messages');
+      const msgs = (r && r.messages) || [];
+      D.chatLog[name] = [];
+      for (const m of msgs) {
+        if (m.role === 'user' || m.role === 'assistant') {
+          const text = m.content || '';
+          if (text) {
+            D.chatLog[name].push({ role: m.role === 'user' ? 'you' : 'bot', text, ts: (m.timestamp || 0) * 1000 });
+          }
+        }
+      }
+      if (D.chatLog[name].length > 100) D.chatLog[name] = D.chatLog[name].slice(-100);
+    } catch (e) {
+      console.warn('load messages error', e);
+    }
+  }
+
+  window.Dashboard.API = {
+    fetchJson,
+    loadUserRole,
+    saveUserRole,
+    loadProfiles,
+    postOptimize,
+    postChat,
+    listSessions,
+    createSession,
+    renameSession,
+    deleteSession,
+    loadSessionMessages,
+    loadSessionsFor,
+    // Internal reconnect is handled by wsScheduleReconnect().
+    // wsReconnect is NOT exported — callers use wsConnect() directly.
+    wsConnect,
+    wsSend,
+    wsClose,
+  };
+
+  // ---- Sessions loading (used by both WS handler and REST fallback) ----
+  async function loadSessionsFor(name) {
+    try {
+      const list = await listSessions(name);
+      D.sessionsMap[name] = list;
+      if (D.activeSessionMap[name] === undefined && list.length > 0) {
+        D.activeSessionMap[name] = list[0].id;
+      }
+      const activeId = D.activeSessionMap[name];
+      if (activeId) {
+        await loadSessionMessages(name, activeId);
+      }
+    } catch (e) {
+      D.sessionsMap[name] = [];
+    }
+  }
+
+  // ---- WebSocket (replaces polling) ----
+  let ws = null;
+  let wsReconnectAttempt = 0;
+  let wsReconnectTimer = null;
+  let wsPollFallbackTimer = null;
+
+  function wsConnect() {
+    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+
+    try {
+      ws = new WebSocket(C.WS_URL);
+    } catch (e) {
+      console.warn('ws: failed to create WebSocket, falling back to REST polling', e);
+      startRestPolling();
+      return;
+    }
+
+    ws.onopen = () => {
+      console.log('ws: connected');
+      wsReconnectAttempt = 0;
+      D.connState = 'live';
+      getRender().setConn('live', 'live · WS · ' + Object.keys(D.profilesByName).length);
+      // Stop REST fallback if it was running
+      stopRestPolling();
+    };
+
+    ws.onmessage = (event) => {
+      let msg;
+      try {
+        msg = JSON.parse(event.data);
+      } catch {
+        return;
+      }
+      handleWsMessage(msg);
+    };
+
+    ws.onclose = (event) => {
+      console.log('ws: disconnected', event.code, event.reason);
+      ws = null;
+      // Fallback to REST polling while reconnecting
+      startRestPolling();
+      wsScheduleReconnect();
+    };
+
+    ws.onerror = (err) => {
+      console.error('ws: error', err);
+      // onclose will fire after onerror
+    };
+  }
+
+  function wsSend(data) {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(data));
+      return true;
+    }
+    return false;
+  }
+
+  function wsClose() {
+    if (wsReconnectTimer) {
+      clearTimeout(wsReconnectTimer);
+      wsReconnectTimer = null;
+    }
+    stopRestPolling();
+    if (ws) {
+      ws.close();
+      ws = null;
+    }
+  }
+
+  function wsReconnect() {
+    wsScheduleReconnect();
+  }
+
+  function wsScheduleReconnect() {
+    if (wsReconnectTimer) clearTimeout(wsReconnectTimer);
+    const delay = C.WS_RECONNECT_DELAYS[Math.min(wsReconnectAttempt, C.WS_RECONNECT_DELAYS.length - 1)];
+    wsReconnectAttempt++;
+    console.log('ws: reconnecting in ' + delay + 'ms (attempt ' + wsReconnectAttempt + ')');
+    wsReconnectTimer = setTimeout(() => {
+      wsConnect();
+    }, delay);
+  }
+
+  function startRestPolling() {
+    if (wsPollFallbackTimer) return; // already running
+    console.log('ws: starting REST polling fallback');
+    restPollTick(); // immediate first poll
+    wsPollFallbackTimer = setInterval(restPollTick, C.POLL_MS);
+  }
+
+  function stopRestPolling() {
+    if (wsPollFallbackTimer) {
+      clearInterval(wsPollFallbackTimer);
+      wsPollFallbackTimer = null;
+    }
+  }
+
+  async function restPollTick() {
+    try {
+      const map = await loadProfiles();
+      const oldNames = Object.keys(D.profilesByName).sort().join(',');
+      const newNames = Object.keys(map).sort().join(',');
+
+      const oldLeaders = D.leaders.join(',');
+      D.profilesByName = map;
+      const known = new Set(Object.keys(map));
+      D.leaders = D.leaders.map(n => (n && known.has(n)) ? n : null);
+      const newLeaders = D.leaders.join(',');
+
+      if (oldNames !== newNames || oldLeaders !== newLeaders) {
+        const curLeaders = D.leaders.filter(Boolean);
+        if (curLeaders.length > 0) {
+          await Promise.all(curLeaders.map(n => loadSessionsFor(n)));
+        }
+        getRender().renderAll();
+      } else {
+        getRender().updateProfileData();
+      }
+
+      const filled = D.leaders.filter(Boolean).length;
+      D.els.leadersCount.textContent = filled + '/' + C.LEADER_SLOTS;
+      D.els.allCount.textContent = Object.keys(D.profilesByName).length;
+      getRender().setConn('live', 'live · REST · ' + Object.keys(map).length);
+      D.lastError = '';
+    } catch (e) {
+      D.lastError = e.message || String(e);
+      getRender().setConn('error', 'error · ' + D.lastError);
+    }
+  }
+
+  function handleWsMessage(msg) {
+    switch (msg.type) {
+      case 'profiles': {
+        const list = (msg.profiles || []);
+        if (!Array.isArray(list)) return;
+        const map = {};
+        for (const raw of list) {
+          const p = U.normProfile(raw);
+          if (p.name) map[p.name] = p;
+        }
+        const oldNames = Object.keys(D.profilesByName).sort().join(',');
+        const newNames = Object.keys(map).sort().join(',');
+
+        const oldLeaders = D.leaders.join(',');
+        D.profilesByName = map;
+        const known = new Set(Object.keys(map));
+        D.leaders = D.leaders.map(n => (n && known.has(n)) ? n : null);
+        const newLeaders = D.leaders.join(',');
+
+        if (oldNames !== newNames || oldLeaders !== newLeaders) {
+          const curLeaders = D.leaders.filter(Boolean);
+          if (curLeaders.length > 0) {
+            Promise.all(curLeaders.map(n => loadSessionsFor(n))).then(() => getRender().renderAll());
+          } else {
+            getRender().renderAll();
+          }
+        } else {
+          getRender().updateProfileData();
+        }
+
+        const filled = D.leaders.filter(Boolean).length;
+        D.els.leadersCount.textContent = filled + '/' + C.LEADER_SLOTS;
+        D.els.allCount.textContent = Object.keys(D.profilesByName).length;
+        getRender().setConn('live', 'live · WS · ' + Object.keys(map).length);
+        D.lastError = '';
+        break;
+      }
+
+      case 'chat_response': {
+        const { profile, response, session_id, new_session } = msg;
+        getRender().appendChat(profile, 'bot', String(response || ''));
+        if (new_session && session_id) {
+          D.activeSessionMap[profile] = session_id;
+          D.sessionsMap[profile] = D.sessionsMap[profile] || [];
+          const existing = D.sessionsMap[profile].find(s => s.id === session_id);
+          if (!existing) {
+            D.sessionsMap[profile].unshift({ id: session_id, title: null, source: 'chat', message_count: 1, last_message_at: new Date().toISOString() });
+          } else {
+            existing.message_count = (existing.message_count || 0) + 1;
+            existing.last_message_at = new Date().toISOString();
+          }
+          getRender().renderAll();
+        } else if (session_id) {
+          const list = D.sessionsMap[profile] || [];
+          const s = list.find(x => x.id === session_id);
+          if (s) {
+            s.message_count = (s.message_count || 0) + 1;
+            s.last_message_at = new Date().toISOString();
+            getRender().renderAll();
+          }
+        }
+        break;
+      }
+
+      case 'chat_error': {
+        getRender().appendChat(msg.profile, 'bot', '⚠ chat error: ' + (msg.error || 'unknown'));
+        break;
+      }
+
+      case 'optimize_response': {
+        getRender().appendChat(msg.profile, 'bot', '✓ контекст оптимизирован');
+        D.optimizing.delete(msg.profile);
+        getRender().renderAll();
+        break;
+      }
+
+      case 'optimize_error': {
+        getRender().appendChat(msg.profile, 'bot', '⚠ optimize error: ' + (msg.error || 'unknown'));
+        D.optimizing.delete(msg.profile);
+        getRender().renderAll();
+        break;
+      }
+
+      case 'pong':
+        // keepalive — nothing to do
+        break;
+
+      case 'error':
+        console.warn('ws: server error', msg.error);
+        break;
+    }
+  }
+})();
+(function () {
+  'use strict';
+
   const D = window.Dashboard.Data;
   const A = window.Dashboard.API;
   const R = window.Dashboard.Render;
@@ -1189,6 +1197,7 @@
   const R = window.Dashboard.Render;
   const Drag = window.Dashboard.DragDrop;
   const Modal = window.Dashboard.Modal;
+  const U = window.Dashboard.Utils;
 
   // ---- Filter + Dropdown wiring ----
   D.els.filterInput.addEventListener('input', (e) => {

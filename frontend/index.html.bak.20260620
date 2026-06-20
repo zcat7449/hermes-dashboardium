@@ -1,0 +1,1820 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboardium — Hermes Profiles</title>
+<style>
+:root {
+  --bg: #1a1a2e;
+  --card: #16213e;
+  --text: #e0e0e0;
+  --accent: #0f3460;
+  --green: #4ecca3;
+  --yellow: #e8c547;
+  --gray: #6c757d;
+  --red: #e74c3c;
+  --border: rgba(255,255,255,0.08);
+  --shadow: 0 4px 16px rgba(0,0,0,0.35);
+  --radius: 10px;
+  --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: "SF Mono", Menlo, Consolas, "Courier New", monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.4;
+  height: 100vh;
+  overflow: hidden;
+}
+body {
+  display: flex;
+  flex-direction: column;
+}
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
+  background: rgba(15,52,96,0.25);
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0;
+  backdrop-filter: blur(8px);
+  z-index: 10;
+}
+header h1 {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+header h1 .dot {
+  display: inline-block;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--green);
+  margin-right: 8px;
+  box-shadow: 0 0 8px var(--green);
+}
+header .conn {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px;
+  color: rgba(224,224,224,0.7);
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(0,0,0,0.2);
+}
+header .conn .pulse {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+header .conn.demo .pulse { background: var(--yellow); animation: none; }
+header .conn.error .pulse { background: var(--red); animation: none; }
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(1.4); }
+}
+main {
+  padding: 12px 24px 8px;
+  max-width: 100%;
+  width: 100%;
+  margin: 0 auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.section {
+  /* не фиксированный margin-bottom */
+}
+.section:first-of-type {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.section h2 {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: rgba(224,224,224,0.55);
+  margin-bottom: 6px;
+  display: flex; align-items: center; gap: 6px;
+  flex-shrink: 0;
+}
+.section h2 .count {
+  background: var(--accent);
+  color: var(--text);
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+}
+.top-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  flex: 1;
+  min-height: 0;
+}
+.top-grid .card {
+  /* Растягивается на всю высоту top-grid */
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  gap: 4px;
+  padding: 8px 10px;
+}
+.top-grid .card .head .name {
+  font-size: 13px;
+}
+.top-grid .card .model {
+  font-size: 9px;
+  line-height: 1.2;
+}
+.top-grid .card .task {
+  padding: 3px 6px;
+  font-size: 10px;
+  margin: 0;
+}
+.top-grid .card .task .task-id {
+  font-size: 8px;
+  margin-bottom: 0;
+}
+.top-grid .card .timer {
+  font-size: 13px;
+  padding: 0;
+  line-height: 1.2;
+}
+.top-grid .card .actions {
+  margin-top: 0;
+  gap: 4px;
+}
+.top-grid .card .actions .btn {
+  padding: 3px 6px;
+  font-size: 10px;
+}
+.top-grid .card .chat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.top-grid .card .chat .log {
+  flex: 1;
+  max-height: none;
+  min-height: 60px;
+  overflow-y: auto;
+}
+.top-grid .card .chat .row {
+  flex-shrink: 0;
+}
+.bottom-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 6px;
+  flex-shrink: 0;
+}
+.bottom-grid .card {
+  min-height: 200px;
+  padding: 8px;
+  gap: 3px;
+}
+.bottom-grid .card .model {
+  font-size: 9px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bottom-grid .card .task {
+  padding: 3px 5px;
+  font-size: 9px;
+  border-left-width: 2px;
+  margin: 0;
+}
+.bottom-grid .card .task .task-id {
+  font-size: 8px;
+}
+.bottom-grid .card .timer {
+  font-size: 12px;
+  padding: 1px 0;
+}
+.bottom-grid .card .actions {
+  margin-top: 0;
+  gap: 4px;
+}
+.bottom-grid .card .actions .btn {
+  padding: 3px 5px;
+  font-size: 9px;
+}
+.bottom-grid .card .head .name {
+  font-size: 12px;
+}
+
+/* Task queue */
+.task-queue {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 2px;
+  max-height: 80px;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+.task-queue-item {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 9px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  background: rgba(0,0,0,0.15);
+  cursor: help;
+}
+.task-queue-item:hover { background: rgba(255,255,255,0.06); }
+.task-queue-item.active {
+  background: rgba(78,204,163,0.12);
+  border-left: 2px solid var(--green);
+}
+.tq-board {
+  font-family: var(--font-mono);
+  font-size: 7px;
+  color: rgba(255,255,255,0.4);
+  min-width: 24px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tq-id {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  color: var(--text);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tq-status {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.tq-status.running { background: var(--green); box-shadow: 0 0 4px var(--green); }
+.tq-status.blocked { background: var(--yellow); }
+.tq-status.ready { background: #4fc3f7; }
+.tq-status.todo { background: var(--gray); }
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  /* min-height задаётся через top-grid .card или bottom-grid .card */
+  position: relative;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+  cursor: pointer;
+}
+.card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(78,204,163,0.4);
+}
+.card.empty-slot {
+  border: 1px dashed rgba(255,255,255,0.18);
+  background: rgba(22,33,62,0.4);
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  cursor: default;
+}
+.card.empty-slot:hover { transform: none; }
+.card.empty-slot .free-label {
+  font-size: 13px;
+  color: rgba(224,224,224,0.4);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+}
+.card.empty-slot .assign-btn {
+  background: var(--accent);
+  color: var(--text);
+  border: none;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: var(--font-ui);
+  margin-top: 8px;
+}
+.card.empty-slot .assign-btn:hover { background: #1450a0; }
+.empty-slot.wide-slot {
+  grid-column: span 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  cursor: default;
+  min-height: 240px;
+}
+.empty-slot.wide-slot .free-label {
+  font-size: 18px;
+  color: rgba(224,224,224,0.4);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-bottom: 4px;
+}
+.empty-slot.wide-slot .free-sub {
+  font-size: 11px;
+  color: rgba(224,224,224,0.25);
+  margin-bottom: 12px;
+}
+.empty-slot.wide-slot .assign-btn {
+  background: var(--accent);
+  color: var(--text);
+  border: none;
+  padding: 8px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  font-family: var(--font-ui);
+  transition: background 0.15s;
+}
+.empty-slot.wide-slot .assign-btn:hover { background: #1450a0; }
+.card .head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px;
+}
+.card .name {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--text);
+  text-transform: lowercase;
+}
+.card .status-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 6px currentColor;
+}
+.card .status-dot.running { background: var(--green); color: var(--green); }
+.card .status-dot.blocked { background: var(--yellow); color: var(--yellow); }
+.card .status-dot.idle    { background: var(--gray);   color: var(--gray); }
+.card .model {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: rgba(224,224,224,0.55);
+  word-break: break-all;
+}
+.card .task {
+  background: rgba(0,0,0,0.2);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 12px;
+  border-left: 3px solid var(--accent);
+}
+.card .task .task-id {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: rgba(224,224,224,0.5);
+  margin-bottom: 2px;
+}
+.card .task .task-title {
+  color: var(--text);
+  word-break: break-word;
+}
+.card .task.idle-task {
+  border-left-color: var(--gray);
+  color: rgba(224,224,224,0.4);
+  font-style: italic;
+}
+.card .timer {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 600;
+  text-align: center;
+  padding: 4px 0;
+  color: var(--green);
+  letter-spacing: 1px;
+}
+.card .timer.idle-timer { color: var(--gray); font-size: 14px; font-weight: 400; }
+.card .actions {
+  display: flex; gap: 6px; margin-top: 4px;
+}
+.btn {
+  flex: 1;
+  background: var(--accent);
+  color: var(--text);
+  border: none;
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font-ui);
+  transition: background 0.15s;
+}
+.btn:hover { background: #1450a0; }
+.btn.optimize { background: rgba(78,204,163,0.18); color: var(--green); }
+.btn.optimize:hover { background: rgba(78,204,163,0.3); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.chat {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.chat .log {
+  background: rgba(0,0,0,0.25);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 11px;
+  max-height: 200px;
+  min-height: 80px;
+  overflow-y: auto;
+  font-family: var(--font-mono);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.chat .log .msg-you { color: var(--green); }
+.chat .log .msg-bot { color: var(--text); }
+.chat .log .empty { color: rgba(224,224,224,0.35); font-style: italic; }
+.chat .row {
+  display: flex; gap: 4px;
+}
+.chat input {
+  flex: 1;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 6px 8px;
+  border-radius: 5px;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  min-width: 0;
+}
+.chat input:focus { outline: 1px solid var(--green); border-color: var(--green); }
+.chat button {
+  background: var(--green);
+  color: #0a0a14;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: var(--font-ui);
+}
+.chat button:hover { background: #6ee0b8; }
+.chat button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Sessions */
+.session-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 100px;
+  overflow-y: auto;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 4px;
+  margin-bottom: 4px;
+}
+.session-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+  transition: background 0.1s;
+}
+.session-item:hover { background: rgba(255,255,255,0.06); }
+.session-item.active { background: rgba(78,204,163,0.12); color: var(--green); }
+.session-item .sess-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.session-item .sess-source { font-size: 8px; color: rgba(255,255,255,0.3); }
+.session-item .sess-msg-count { font-size: 9px; color: rgba(255,255,255,0.4); }
+.session-item button { opacity: 0.4; cursor: pointer; background: none; border: none; color: var(--text); padding: 0 2px; font-size: 11px; }
+.session-item:hover button { opacity: 0.8; }
+.session-item button:hover { opacity: 1; color: var(--green); }
+.session-item .sess-delete:hover { color: var(--red); }
+.sess-new {
+  background: none;
+  border: 1px dashed var(--border);
+  color: rgba(255,255,255,0.5);
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  cursor: pointer;
+  width: 100%;
+  text-align: center;
+  margin-top: 2px;
+}
+.sess-new:hover { border-color: var(--green); color: var(--green); }
+.session-item.active .sess-name { color: var(--green); font-weight: 600; }
+.session-item.active::before {
+  content: '●';
+  color: var(--green);
+  font-size: 8px;
+  margin-right: 2px;
+}
+.session-list:empty + .sess-new { margin-top: 0; }
+
+/* Filter */
+.filter-bar {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 4px;
+  flex-shrink: 0;
+}
+.filter-bar input {
+  flex: 1;
+  max-width: 400px;
+  background: rgba(0,0,0,0.25);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-family: var(--font-ui);
+  font-size: 13px;
+}
+.filter-bar input:focus { outline: 1px solid var(--green); border-color: var(--green); }
+.filter-bar .meta {
+  font-size: 12px;
+  color: rgba(224,224,224,0.5);
+  margin-left: auto;
+}
+
+@media (max-width: 1199px) {
+  .bottom-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (max-width: 900px) {
+  .top-grid { grid-template-columns: repeat(2, 1fr); }
+  .bottom-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 768px) {
+  .bottom-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 560px) {
+  .top-grid { grid-template-columns: 1fr; }
+  .bottom-grid { grid-template-columns: 1fr; }
+  main { padding: 8px 12px 4px; }
+  header { padding: 8px 12px; }
+  .section h2 { margin-bottom: 6px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+  header .conn .pulse { animation: none; }
+}
+:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+
+/* ---- Profile Modal ---- */
+.profile-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: modalFadeIn 0.2s ease;
+}
+@keyframes modalFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.profile-modal {
+  background: #1e2a4a;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.6);
+  width: 420px;
+  max-width: 90vw;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  animation: modalSlideIn 0.2s ease;
+  overflow: hidden;
+}
+@keyframes modalSlideIn {
+  from { transform: translateY(20px) scale(0.96); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+.profile-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.profile-modal-header h3 {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: var(--text);
+}
+.pm-counter {
+  font-weight: 400;
+  color: rgba(224,224,224,0.6);
+}
+.profile-modal-header-btns {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.profile-modal-close-btn {
+  background: rgba(78,204,163,0.12);
+  border: 1px solid rgba(78,204,163,0.25);
+  color: var(--green);
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: var(--font-ui);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.profile-modal-close-btn:hover {
+  background: rgba(78,204,163,0.25);
+}
+.profile-modal-close {
+  background: none;
+  border: none;
+  color: rgba(224,224,224,0.4);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+  transition: color 0.15s;
+}
+.profile-modal-close:hover { color: var(--red); }
+.profile-modal-search {
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.profile-modal-search input {
+  width: 100%;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.profile-modal-search input:focus {
+  border-color: var(--green);
+}
+.profile-modal-search input::placeholder {
+  color: rgba(224,224,224,0.35);
+}
+.profile-modal-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 0;
+}
+.profile-modal-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px;
+  cursor: pointer;
+  transition: background 0.1s;
+  border-left: 3px solid transparent;
+}
+.profile-modal-item:hover {
+  background: rgba(78,204,163,0.08);
+  border-left-color: var(--green);
+}
+.profile-modal-item.selected {
+  background: rgba(78,204,163,0.12);
+  border-left-color: var(--green);
+}
+.profile-modal-item .pm-check {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid rgba(224,224,224,0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  flex-shrink: 0;
+  transition: all 0.15s;
+  color: transparent;
+  line-height: 1;
+}
+.profile-modal-item.selected .pm-check {
+  background: var(--green);
+  border-color: var(--green);
+  color: #0a0a14;
+}
+.profile-modal-item .pm-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 6px currentColor;
+}
+.profile-modal-item .pm-dot.running { background: var(--green); color: var(--green); }
+.profile-modal-item .pm-dot.blocked { background: var(--yellow); color: var(--yellow); }
+.profile-modal-item .pm-dot.idle    { background: var(--gray);   color: var(--gray); }
+.profile-modal-item .pm-name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  text-transform: lowercase;
+}
+.profile-modal-item .pm-model {
+  font-size: 10px;
+  color: rgba(224,224,224,0.5);
+  font-family: var(--font-mono);
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.profile-modal-empty {
+  padding: 24px 18px;
+  text-align: center;
+  color: rgba(224,224,224,0.35);
+  font-style: italic;
+  font-size: 13px;
+}
+
+</style>
+</head>
+<body>
+
+<header>
+  <h1><span class="dot"></span>Dashboardium</h1>
+  <div class="conn" id="conn">
+    <span class="pulse"></span>
+    <span id="connText">live · API</span>
+  </div>
+</header>
+
+<main>
+
+  <div class="section">
+    <h2>Лидеры <span class="count" id="leadersCount">0/4</span></h2>
+    <div class="top-grid" id="topGrid"></div>
+  </div>
+
+  <div class="section">
+    <h2>Все профили <span class="count" id="allCount">0</span></h2>
+    <div class="filter-bar">
+      <input type="text" id="filterInput" placeholder="Поиск / фильтр профилей…" autocomplete="off">
+      <span class="meta" id="filterMeta"></span>
+    </div>
+    <div class="bottom-grid" id="bottomGrid"></div>
+  </div>
+
+</main>
+
+<script>
+(function () {
+  'use strict';
+
+  // ---- Config ----
+  const API_BASE = (new URLSearchParams(location.search).get('api')) || '';
+  const POLL_MS = 5000;
+  const FETCH_TIMEOUT_MS = 4000;
+  const CHAT_TIMEOUT_MS = 120000; // чат через hermes CLI — до 120 сек
+  const LEADER_SLOTS = 4; // orchestrator, rechelok, aitrainer, +1 свободный
+
+  // ---- State ----
+  // profilesByName: { [name]: { name, model, task_id, task_title, task_status, started_at_ms, uptime_seconds } }
+  let profilesByName = {};
+  // leaders: array of 4 names (string or null)
+  let leaders = ['orchestrator', 'rechelok', 'aitrainer', null];
+  // chat log per leader name
+  const chatLog = {}; // name -> [{role:'you'|'bot', text, ts}]
+  // sessions: name -> [ {id, title, source, message_count, last_message_at} ]
+  const sessionsMap = {}; // { [profileName]: Session[] }
+  // active session per leader: name -> sessionId | null (null = новая, ещё не создана)
+  const activeSessionMap = {}; // { [profileName]: string | null }
+  let connState = 'live'; // 'live' | 'demo' | 'error'
+  let lastError = '';
+  let filterText = '';
+  let optimizing = new Set(); // names currently being optimized
+  // Cache flag: какие эндпоинты сессий доступны (если 404 — переходим в localStorage режим)
+  let sessionsApiAvailable = true;
+
+  // ---- DOM ----
+  const el = {
+    topGrid: document.getElementById('topGrid'),
+    bottomGrid: document.getElementById('bottomGrid'),
+    conn: document.getElementById('conn'),
+    connText: document.getElementById('connText'),
+    leadersCount: document.getElementById('leadersCount'),
+    allCount: document.getElementById('allCount'),
+    filterInput: document.getElementById('filterInput'),
+    filterMeta: document.getElementById('filterMeta'),
+  };
+
+  el.filterInput.addEventListener('input', (e) => {
+    filterText = (e.target.value || '').toLowerCase().trim();
+    render();
+  });
+
+  // ---- Utils ----
+  function esc(s) {
+    if (s == null) return '';
+    return String(s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  function fmtUptime(sec) {
+    sec = Math.max(0, Math.floor(sec || 0));
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = sec % 60;
+    if (h > 0) return h + 'ч ' + String(m).padStart(2, '0') + 'м';
+    return String(m).padStart(2, '0') + 'м ' + String(s).padStart(2, '0') + 'с';
+  }
+  function fmtTokens(total) {
+    if (total <= 0) return '';
+    // Показываем в K или M
+    if (total >= 1000000) return (total / 1000000).toFixed(1) + 'M';
+    if (total >= 1000) return (total / 1000).toFixed(1) + 'K';
+    return String(total);
+  }
+  function fmtTime(ms) {
+    if (!ms) return '—';
+    const d = new Date(ms);
+    return d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+  function normStatus(p) {
+    const s = (p.task_status || p.status || p.state || '').toString().toLowerCase();
+    if (s === 'running' || s === 'in_progress' || s === 'active') return 'running';
+    if (s === 'blocked' || s === 'paused' || s === 'waiting') return 'blocked';
+    if (s === 'error' || s === 'failed' || s === 'crashed') return 'error';
+    return 'idle';
+  }
+  function normProfile(raw) {
+    // Accept flat or nested shapes
+    const name = raw.name || raw.profile || raw.id;
+    const ct = raw.current_task || {};
+    const task_id = raw.kanban_task || raw.task_id || ct.id || null;
+    const task_title = raw.kanban_title || raw.task_title || ct.title || null;
+    const task_status = normStatus({
+      task_status: raw.kanban_status || raw.task_status || ct.task_status || ct.status,
+      status: raw.status,
+    });
+    let started_at_ms = null;
+    if (raw.started_at) {
+      const v = Number(raw.started_at);
+      if (!isNaN(v)) started_at_ms = v < 1e12 ? v * 1000 : v;
+    } else if (raw.started_at_ms) {
+      started_at_ms = Number(raw.started_at_ms);
+    }
+    const uptime = Number(raw.uptime_seconds || raw.uptime || 0);
+    return {
+      name: String(name || '').toLowerCase(),
+      model: raw.model || null,
+      task_id,
+      task_title,
+      task_status,
+      tasks: raw.tasks || [],
+      usage_input: raw.usage_input || 0,
+      usage_output: raw.usage_output || 0,
+      usage_percent: raw.usage_percent || 0,
+      context_limit: raw.context_limit || 1000000,
+      started_at_ms,
+      uptime_seconds: isFinite(uptime) ? uptime : 0,
+    };
+  }
+  function getEffectiveUptime(p) {
+    if (p.started_at_ms) {
+      return Math.max(0, (Date.now() - p.started_at_ms) / 1000);
+    }
+    return p.uptime_seconds || 0;
+  }
+
+  // ---- API ----
+  async function fetchJson(url, opts, timeoutMs) {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), timeoutMs || FETCH_TIMEOUT_MS);
+    try {
+      const r = await fetch(url, Object.assign({}, opts, { signal: ctrl.signal }));
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return await r.json();
+    } finally {
+      clearTimeout(t);
+    }
+  }
+  async function loadProfiles() {
+    const data = await fetchJson(API_BASE + '/api/profiles');
+    const list = (data && (data.profiles || data)) || [];
+    if (!Array.isArray(list)) throw new Error('Bad payload');
+    const map = {};
+    for (const raw of list) {
+      const p = normProfile(raw);
+      if (p.name) map[p.name] = p;
+    }
+    return map;
+  }
+  async function postOptimize(name) {
+    return fetchJson(API_BASE + '/api/optimize/' + encodeURIComponent(name), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+  }
+  async function postChat(name, message) {
+    return fetchJson(API_BASE + '/api/chat/' + encodeURIComponent(name), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: message }),
+    }, CHAT_TIMEOUT_MS);
+  }
+
+  // ---- Sessions API ----
+  // Бэкенд может не иметь этих эндпоинтов — при 404 переходим в localStorage режим.
+  // localStorage ключ: `dash.sessions.v1.<profileName>` -> JSON array of sessions
+  function lsKey(name) { return 'dash.sessions.v1.' + name; }
+  function lsLoad(name) {
+    try { return JSON.parse(localStorage.getItem(lsKey(name)) || '[]') || []; }
+    catch (e) { return []; }
+  }
+  function lsSave(name, list) {
+    try { localStorage.setItem(lsKey(name), JSON.stringify(list)); } catch (e) {}
+  }
+  function localCreate(name) {
+    const list = lsLoad(name);
+    const id = 'sess_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);
+    const sess = { id, title: null, source: 'dashboard', message_count: 0, last_message_at: null };
+    list.unshift(sess);
+    lsSave(name, list);
+    return sess;
+  }
+  function localRename(name, id, title) {
+    const list = lsLoad(name);
+    const s = list.find(x => x.id === id);
+    if (s) s.title = title;
+    lsSave(name, list);
+  }
+  function localDelete(name, id) {
+    const list = lsLoad(name).filter(x => x.id !== id);
+    lsSave(name, list);
+  }
+  function localList(name) { return lsLoad(name); }
+
+  async function listSessions(name) {
+    if (!sessionsApiAvailable) return localList(name);
+    try {
+      const r = await fetchJson(API_BASE + '/api/profiles/' + encodeURIComponent(name) + '/sessions');
+      return (r && r.sessions) || [];
+    } catch (e) {
+      // 404 / network: fallback
+      sessionsApiAvailable = false;
+      return localList(name);
+    }
+  }
+  async function createSession(name) {
+    if (!sessionsApiAvailable) return localCreate(name);
+    try {
+      return await fetchJson(API_BASE + '/api/profiles/' + encodeURIComponent(name) + '/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+    } catch (e) {
+      sessionsApiAvailable = false;
+      return localCreate(name);
+    }
+  }
+  async function renameSession(name, id, title) {
+    if (!sessionsApiAvailable) return localRename(name, id, title);
+    try {
+      return await fetchJson(API_BASE + '/api/profiles/' + encodeURIComponent(name) + '/sessions/' + encodeURIComponent(id), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: title }),
+      });
+    } catch (e) {
+      sessionsApiAvailable = false;
+      return localRename(name, id, title);
+    }
+  }
+  async function deleteSession(name, id) {
+    if (!sessionsApiAvailable) return localDelete(name, id);
+    try {
+      return await fetchJson(API_BASE + '/api/profiles/' + encodeURIComponent(name) + '/sessions/' + encodeURIComponent(id), {
+        method: 'DELETE',
+      });
+    } catch (e) {
+      sessionsApiAvailable = false;
+      return localDelete(name, id);
+    }
+  }
+
+  // ---- Render: sessions ----
+  function sessionDisplayName(s) {
+    if (s && s.title && s.title.trim()) return s.title.trim();
+    if (s && s.last_message_at) {
+      const d = new Date(s.last_message_at);
+      const date = d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+      return 'Сессия от ' + date;
+    }
+    if (s && s.id) {
+      // id looks like "sess_<ts36>_<rand>" or "20260615_081835_80bac6"; extract date from the timestamp
+      const m = String(s.id).match(/^sess_([a-z0-9]+)_/);
+      if (m) {
+        const ts = parseInt(m[1], 36);
+        if (isFinite(ts)) {
+          const d = new Date(ts);
+          const date = d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+          return 'Сессия от ' + date;
+        }
+      }
+      // Also handle "20260615_081835_80bac6" format
+      const m2 = String(s.id).match(/^(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})_/);
+      if (m2) {
+        const d = new Date(+m2[1], +m2[2] - 1, +m2[3], +m2[4], +m2[5], +m2[6]);
+        const date = d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+        return 'Сессия от ' + date;
+      }
+    }
+    return 'Сессия';
+  }
+  function renderSessionList(name) {
+    const list = sessionsMap[name] || [];
+    const activeId = activeSessionMap[name] || null;
+    const items = list.map(s => {
+      const isActive = s.id === activeId;
+      const display = sessionDisplayName(s);
+      const source = s.source ? `<span class="sess-source">${esc(s.source)}</span>` : '';
+      const count = (s.message_count != null && s.message_count > 0) ? `<span class="sess-msg-count">${s.message_count}</span>` : '';
+      return `<div class="session-item ${isActive ? 'active' : ''}" data-action="sess-select" data-name="${esc(name)}" data-sid="${esc(s.id)}" title="${esc(s.id)}">
+        <span class="sess-name">${esc(display)}</span>
+        ${count}
+        ${source}
+        <button data-action="sess-rename" data-name="${esc(name)}" data-sid="${esc(s.id)}" title="переименовать">✎</button>
+        <button class="sess-delete" data-action="sess-delete" data-name="${esc(name)}" data-sid="${esc(s.id)}" title="удалить">✕</button>
+      </div>`;
+    }).join('');
+    return `<div class="session-list" data-session-list="${esc(name)}">${items}</div>
+      <button class="sess-new" data-action="sess-new" data-name="${esc(name)}">+ Новая сессия</button>`;
+  }
+  function renderCardBody(p, opts) {
+    opts = opts || {};
+    const status = p.task_status || 'idle';
+    const isRunning = status === 'running';
+    const isBlocked = status === 'blocked';
+    const dotClass = isRunning ? 'running' : (isBlocked ? 'blocked' : 'idle');
+    const model = p.model || '—';
+    const task = (p.task_id || p.task_title) ? `
+      <div class="task">
+        <div class="task-id">${esc(p.task_id || '—')}</div>
+        <div class="task-title">${esc(p.task_title || '')}</div>
+      </div>` : `
+      <div class="task idle-task">— нет активной задачи —</div>`;
+    const uptimeSec = getEffectiveUptime(p);
+    const timerCls = isRunning || isBlocked ? '' : 'idle-timer';
+    const timer = `<div class="timer ${timerCls}" data-started="${p.started_at_ms || 0}" data-base="${isRunning || isBlocked ? Math.floor(uptimeSec) : 0}">${fmtUptime(uptimeSec)}</div>`;
+    // Task queue
+    const tasks = p.tasks || [];
+    const activeTaskId = p.task_id;
+    const queueHtml = tasks.length > 1
+      ? `<div class="task-queue">${tasks.map(t => `
+        <div class="task-queue-item${t.id === activeTaskId ? ' active' : ''}" title="[${esc(t.board || '?')}] ${esc(t.title || '')}">
+          <span class="tq-board">${esc((t.board || '?').substring(0, 10))}</span>
+          <span class="tq-id">${esc(t.id)}</span>
+          <span class="tq-status ${esc(t.status)}"></span>
+        </div>`).join('')}</div>`
+      : '';
+    // Usage контекста
+    const totalTokens = p.usage_input + p.usage_output;
+    const limit = p.context_limit || 1000000;
+    const pct = typeof p.usage_percent === 'number' ? p.usage_percent : (limit > 0 ? Math.min(100, Math.round(totalTokens / limit * 100)) : 0);
+    // Формат: 281.6k/1m │ [████░░░░░░] 28%
+    const used = totalTokens >= 1000000 ? (totalTokens / 1000000).toFixed(1) + 'M' : totalTokens >= 1000 ? (totalTokens / 1000).toFixed(1) + 'K' : String(totalTokens);
+    const total = limit >= 1000000 ? (limit / 1000000).toFixed(0) + 'm' : limit >= 1000 ? (limit / 1000).toFixed(0) + 'k' : String(limit);
+    const barLen = 10;
+    const filled = Math.round(pct / 100 * barLen);
+    const bar = '█'.repeat(filled) + '░'.repeat(barLen - filled);
+    const usageStr = `${used}/${total} │ ${bar} ${pct}%`;
+    const modelLine = model ? `${model} │ ${usageStr}` : usageStr;
+    return `
+      <div class="head">
+        <div class="name">${esc(p.name)}</div>
+        <div class="status-dot ${dotClass}" title="${esc(status)}"></div>
+      </div>
+      <div class="model">${esc(modelLine)}</div>
+      ${task}
+      ${timer}
+      ${queueHtml}
+      <div class="actions">
+        <button class="btn optimize" data-action="optimize" data-name="${esc(p.name)}" ${optimizing.has(p.name) ? 'disabled' : ''}>
+          ${optimizing.has(p.name) ? '⏳ …' : 'Оптимизировать контекст'}
+        </button>
+      </div>
+    `;
+  }
+
+  function renderTop() {
+    const frag = [];
+    let filled = 0;
+    leaders.forEach((name, idx) => {
+      if (!name) return; // skip empty slots
+      filled++;
+      const p = profilesByName[name];
+      if (!p) {
+        frag.push(`
+          <div class="card" data-name="${esc(name)}" data-slot="${idx}">
+            <div class="head">
+              <div class="name">${esc(name)}</div>
+              <div class="status-dot idle" title="unknown"></div>
+            </div>
+            <div class="model">— нет данных —</div>
+            <div class="task idle-task">профиль не отвечает</div>
+            <div class="timer idle-timer">00м 00с</div>
+            <div class="actions">
+              <button class="btn optimize" disabled>Оптимизировать контекст</button>
+            </div>
+          </div>
+        `);
+        return;
+      }
+      const log = chatLog[name] || [];
+      const logHtml = log.length === 0
+        ? '<div class="empty">диалог пуст</div>'
+        : log.slice(-20).map(m => `<div class="msg-${m.role}">${m.role === 'you' ? '›' : '‹'} ${esc(m.text)}</div>`).join('');
+      const sessionList = renderSessionList(name);
+      const activeSid = activeSessionMap[name];
+      const activeLabel = activeSid
+        ? sessionDisplayName((sessionsMap[name] || []).find(x => x.id === activeSid) || { id: activeSid })
+        : 'новая сессия';
+      frag.push(`
+        <div class="card" data-name="${esc(name)}" data-slot="${idx}">
+          ${renderCardBody(p)}
+          <div class="chat">
+            <div style="font-size:9px; color: rgba(224,224,224,0.4); margin-bottom:2px; letter-spacing:0.5px; text-transform:uppercase;">Сессии</div>
+            ${sessionList}
+            <div style="font-size:9px; color: rgba(224,224,224,0.4); margin: 4px 0 2px; letter-spacing:0.5px; text-transform:uppercase;">Чат · ${esc(activeLabel)}</div>
+            <div class="log" data-chat-log="${esc(name)}">${logHtml}</div>
+            <div class="row">
+              <input type="text" data-chat-input="${esc(name)}" placeholder="сообщение…${activeSid ? '' : ' (новая сессия)'}" autocomplete="off">
+              <button data-action="send" data-name="${esc(name)}">Отправить</button>
+            </div>
+          </div>
+        </div>
+      `);
+    });
+    const emptyCount = LEADER_SLOTS - filled;
+    if (emptyCount > 0) {
+      frag.push(`
+        <div class="card empty-slot wide-slot">
+          <div class="free-label">свободно</div>
+          ${filled > 0 ? `<div class="free-sub">${emptyCount} слот(а) · выберите профили</div>` : ''}
+          <button class="assign-btn" data-action="pick">назначить</button>
+        </div>
+      `);
+    }
+    // Dynamic grid: filled cards + 1 wide slot that spans remaining columns
+    const gridCols = filled > 0
+      ? Math.max(filled + 1, Math.min(filled + emptyCount, 4))
+      : 1;
+    el.topGrid.style.gridTemplateColumns = 'repeat(' + gridCols + ', 1fr)';
+    el.topGrid.innerHTML = frag.join('');
+    el.leadersCount.textContent = filled + '/' + LEADER_SLOTS;
+  }
+
+  function renderBottom() {
+    const allNames = Object.keys(profilesByName).sort();
+    const leaderSet = new Set(leaders.filter(Boolean));
+    let list = allNames.filter(n => !leaderSet.has(n));
+    if (filterText) {
+      list = list.filter(n => n.toLowerCase().includes(filterText));
+    }
+    el.allCount.textContent = allNames.length;
+    el.filterMeta.textContent = filterText
+      ? `фильтр: ${list.length}/${allNames.length - leaderSet.size}`
+      : '';
+    if (list.length === 0) {
+      el.bottomGrid.innerHTML = `<div class="card" style="grid-column: 1/-1; cursor: default; min-height: 80px; align-items: center; justify-content: center; color: rgba(224,224,224,0.4);">
+        ${filterText ? 'ничего не найдено по фильтру' : 'нет профилей вне лидеров'}
+      </div>`;
+      return;
+    }
+    el.bottomGrid.innerHTML = list.map(name => {
+      const p = profilesByName[name];
+      return `<div class="card" data-name="${esc(name)}" data-action="promote" data-name="${esc(name)}">
+        ${renderCardBody(p)}
+      </div>`;
+    }).join('');
+  }
+
+  function render() {
+    renderTop();
+    renderBottom();
+  }
+
+  function setConn(state, text) {
+    connState = state;
+    el.conn.classList.remove('demo', 'error');
+    if (state === 'demo') el.conn.classList.add('demo');
+    if (state === 'error') el.conn.classList.add('error');
+    el.connText.textContent = text;
+  }
+
+  // ---- Actions ----
+  async function doOptimize(name) {
+    if (optimizing.has(name)) return;
+    optimizing.add(name);
+    render();
+    try {
+      await postOptimize(name);
+      appendChat(name, 'bot', '✓ контекст оптимизирован');
+    } catch (e) {
+      appendChat(name, 'bot', '⚠ optimize error: ' + e.message);
+    } finally {
+      optimizing.delete(name);
+      render();
+    }
+  }
+
+  async function doSend(name, input) {
+    const text = (input.value || '').trim();
+    if (!text) return;
+    input.value = '';
+    appendChat(name, 'you', text);
+    try {
+      const body = { message: text };
+      const sid = activeSessionMap[name];
+      if (sid) body.session_id = sid;
+      const r = await fetchJson(API_BASE + '/api/chat/' + encodeURIComponent(name), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }, CHAT_TIMEOUT_MS);
+      const reply = (r && (r.reply || r.message || r.response)) || JSON.stringify(r);
+      appendChat(name, 'bot', String(reply));
+      // Если бэкенд вернул session_id (новая сессия была создана) — зафиксируем в state
+      const newSid = r && r.session_id;
+      if (!sid && newSid) {
+        activeSessionMap[name] = newSid;
+        sessionsMap[name] = sessionsMap[name] || [];
+        // Добавим/обновим запись сессии в списке
+        const existing = sessionsMap[name].find(s => s.id === newSid);
+        if (!existing) {
+          sessionsMap[name].unshift({ id: newSid, title: null, source: 'chat', message_count: 1, last_message_at: new Date().toISOString() });
+        } else {
+          existing.message_count = (existing.message_count || 0) + 1;
+          existing.last_message_at = new Date().toISOString();
+        }
+        render();
+      } else if (sid) {
+        // bump message_count на активной сессии
+        const list = sessionsMap[name] || [];
+        const s = list.find(x => x.id === sid);
+        if (s) {
+          s.message_count = (s.message_count || 0) + 1;
+          s.last_message_at = new Date().toISOString();
+          render();
+        }
+      }
+    } catch (e) {
+      appendChat(name, 'bot', '⚠ chat error: ' + e.message);
+    }
+  }
+
+  async function doRenameSession(name, sid, title) {
+    try {
+      await renameSession(name, sid, title);
+      // обновим локально
+      const list = sessionsMap[name] || [];
+      const s = list.find(x => x.id === sid);
+      if (s) s.title = title || null;
+      render();
+    } catch (e) {
+      appendChat(name, 'bot', '⚠ rename error: ' + e.message);
+    }
+  }
+
+  async function doDeleteSession(name, sid) {
+    try {
+      await deleteSession(name, sid);
+      const list = sessionsMap[name] || [];
+      const idx = list.findIndex(x => x.id === sid);
+      if (idx >= 0) list.splice(idx, 1);
+      // Если удалили активную — сбросить
+      if (activeSessionMap[name] === sid) activeSessionMap[name] = null;
+      render();
+    } catch (e) {
+      appendChat(name, 'bot', '⚠ delete error: ' + e.message);
+    }
+  }
+
+  async function loadSessionsFor(name) {
+    try {
+      const list = await listSessions(name);
+      sessionsMap[name] = list;
+      // Если активная сессия не выбрана, а список непустой — выберем первую (самую свежую)
+      if (activeSessionMap[name] === undefined && list.length > 0) {
+        activeSessionMap[name] = list[0].id;
+      }
+      // Загружаем сообщения для активной сессии
+      const activeId = activeSessionMap[name];
+      if (activeId) {
+        loadSessionMessages(name, activeId);
+      }
+    } catch (e) {
+      sessionsMap[name] = [];
+    }
+  }
+
+  function appendChat(name, role, text) {
+    if (!chatLog[name]) chatLog[name] = [];
+    chatLog[name].push({ role, text, ts: Date.now() });
+    if (chatLog[name].length > 100) chatLog[name] = chatLog[name].slice(-100);
+    const logEl = el.topGrid.querySelector(`[data-chat-log="${CSS.escape(name)}"]`);
+    if (logEl) {
+      const empty = logEl.querySelector('.empty');
+      if (empty) empty.remove();
+      const div = document.createElement('div');
+      div.className = 'msg-' + role;
+      div.textContent = (role === 'you' ? '› ' : '‹ ') + text;
+      logEl.appendChild(div);
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+  }
+
+  // Загрузить сообщения сессии из API
+  const loadedSessions = {}; // name -> sid, кэш чтобы не перезагружать
+  async function loadSessionMessages(name, sid) {
+    if (!sid) return;
+    // Не перезагружаем если уже загружена эта сессия
+    if (loadedSessions[name] === sid && chatLog[name] && chatLog[name].length > 0) return;
+    loadedSessions[name] = sid;
+    try {
+      const r = await fetchJson(API_BASE + '/api/profiles/' + encodeURIComponent(name) + '/sessions/' + encodeURIComponent(sid) + '/messages');
+      const msgs = (r && r.messages) || [];
+      // Заполняем chatLog
+      chatLog[name] = [];
+      for (const m of msgs) {
+        if (m.role === 'user' || m.role === 'assistant') {
+          const text = m.content || '';
+          if (text) {
+            chatLog[name].push({ role: m.role === 'user' ? 'you' : 'bot', text, ts: (m.timestamp || 0) * 1000 });
+          }
+        }
+      }
+      // Ограничим
+      if (chatLog[name].length > 100) chatLog[name] = chatLog[name].slice(-100);
+      // Обновляем DOM
+      const logEl = el.topGrid.querySelector(`[data-chat-log="${CSS.escape(name)}"]`);
+      if (logEl) {
+        logEl.innerHTML = chatLog[name].length === 0
+          ? '<div class="empty">диалог пуст</div>'
+          : chatLog[name].map(m => `<div class="msg-${m.role}">${m.role === 'you' ? '›' : '‹'} ${esc(m.text)}</div>`).join('');
+        logEl.scrollTop = logEl.scrollHeight;
+      }
+    } catch (e) {
+      console.warn('load messages error', e);
+    }
+  }
+
+  // Delegate clicks
+  document.addEventListener('click', (e) => {
+    const t = e.target.closest('[data-action]');
+    if (!t) return;
+    const action = t.dataset.action;
+    if (action === 'optimize') {
+      e.stopPropagation();
+      doOptimize(t.dataset.name);
+    } else if (action === 'send') {
+      e.stopPropagation();
+      const name = t.dataset.name;
+      const input = el.topGrid.querySelector(`[data-chat-input="${CSS.escape(name)}"]`);
+      if (input) doSend(name, input);
+    } else if (action === 'promote') {
+      // Bottom card click → move to top
+      const name = t.dataset.name;
+      promoteToTop(name);
+    } else if (action === 'pick') {
+      pickForSlot();
+    } else if (action === 'demote') {
+      const name = t.dataset.name;
+      demoteFromTop(name);
+    } else if (action === 'sess-select') {
+      e.stopPropagation();
+      const name = t.dataset.name;
+      const sid = t.dataset.sid;
+      activeSessionMap[name] = sid;
+      // Загружаем сообщения для выбранной сессии
+      loadSessionMessages(name, sid);
+      render();
+    } else if (action === 'sess-rename') {
+      e.stopPropagation();
+      const name = t.dataset.name;
+      const sid = t.dataset.sid;
+      const list = sessionsMap[name] || [];
+      const s = list.find(x => x.id === sid);
+      const current = s ? (s.title || '') : '';
+      const next = window.prompt('Новое название сессии:', current);
+      if (next === null) return; // отмена
+      doRenameSession(name, sid, next.trim());
+    } else if (action === 'sess-delete') {
+      e.stopPropagation();
+      const name = t.dataset.name;
+      const sid = t.dataset.sid;
+      if (!window.confirm('Удалить сессию?')) return;
+      doDeleteSession(name, sid);
+    } else if (action === 'sess-new') {
+      e.stopPropagation();
+      const name = t.dataset.name;
+      // Если бэкенд не имеет sessions API — создаём локально (localStorage),
+      // иначе просто сброс active (следующее сообщение получит session_id от бэка)
+      if (sessionsApiAvailable) {
+        // Сначала попробуем создать на бэке сразу
+        createSession(name).then(sess => {
+          if (sess && sess.id) {
+            sessionsMap[name] = sessionsMap[name] || [];
+            const existing = sessionsMap[name].find(s => s.id === sess.id);
+            if (!existing) sessionsMap[name].unshift(sess);
+            activeSessionMap[name] = sess.id;
+            appendChat(name, 'bot', '✦ новая сессия создана');
+            render();
+          } else {
+            activeSessionMap[name] = null;
+            appendChat(name, 'bot', '✦ новая сессия — следующее сообщение начнёт её');
+            render();
+          }
+        }).catch(() => {
+          activeSessionMap[name] = null;
+          appendChat(name, 'bot', '✦ новая сессия — следующее сообщение начнёт её');
+          render();
+        });
+      } else {
+        // localStorage: создаём локально сразу
+        const sess = localCreate(name);
+        sessionsMap[name] = lsLoad(name);
+        activeSessionMap[name] = sess.id;
+        appendChat(name, 'bot', '✦ новая сессия создана (локально)');
+        render();
+      }
+    }
+  });
+
+  // Card-click handler: click on header (head) → promote/demote
+  el.topGrid.addEventListener('click', (e) => {
+    const head = e.target.closest('.head'); // only header triggers demote
+    if (!head) return;
+    const card = head.closest('.card[data-name]');
+    if (!card) return;
+    demoteFromTop(card.dataset.name);
+  });
+  el.bottomGrid.addEventListener('click', (e) => {
+    const head = e.target.closest('.head'); // only header triggers promote
+    if (!head) return;
+    const card = head.closest('.card[data-name]');
+    if (!card) return;
+    promoteToTop(card.dataset.name);
+  });
+
+  // Enter in chat input
+  el.topGrid.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    const inp = e.target.closest('[data-chat-input]');
+    if (!inp) return;
+    e.preventDefault();
+    const name = inp.dataset.chatInput;
+    doSend(name, inp);
+  });
+
+  function promoteToTop(name) {
+    if (!profilesByName[name]) return;
+    // If already a leader, just shift others
+    if (leaders.includes(name)) return;
+    // Find first null slot
+    const nullIdx = leaders.indexOf(null);
+    if (nullIdx !== -1) {
+      leaders[nullIdx] = name;
+    } else {
+      // shift left, drop the last
+      leaders.shift();
+      leaders.push(name);
+    }
+    render();
+  }
+  function demoteFromTop(name) {
+    const idx = leaders.indexOf(name);
+    if (idx === -1) return;
+    leaders[idx] = null;
+    render();
+  }
+  function pickForSlot() {
+    showProfileModal();
+  }
+
+  // ---- Profile Modal (multi-select) ----
+  let profileModalOpen = false;
+  let profileModalFilter = '';
+  let profileModalSelected = []; // array of profile names selected
+
+  function renderProfileModal() {
+    if (!profileModalOpen) return;
+    const allNames = Object.keys(profilesByName).sort();
+    const leaderSet = new Set(leaders.filter(Boolean));
+    const candidates = allNames.filter(n => !leaderSet.has(n));
+    const filtered = profileModalFilter
+      ? candidates.filter(n => n.toLowerCase().includes(profileModalFilter.toLowerCase()))
+      : candidates;
+
+    const remaining = LEADER_SLOTS - leaders.filter(Boolean).length;
+    const selectedCount = profileModalSelected.length;
+
+    const listHtml = filtered.length === 0
+      ? '<div class="profile-modal-empty">' + (profileModalFilter ? 'ничего не найдено' : 'все профили уже назначены') + '</div>'
+      : filtered.map(n => {
+          const p = profilesByName[n] || {};
+          const status = p.task_status || 'idle';
+          const model = p.model || '';
+          const isSelected = profileModalSelected.includes(n);
+          return `<div class="profile-modal-item ${isSelected ? 'selected' : ''}" data-action="pm-toggle" data-pm-name="${esc(n)}">
+            <span class="pm-check">${isSelected ? '✓' : ''}</span>
+            <span class="pm-dot ${esc(status)}"></span>
+            <span class="pm-name">${esc(n)}</span>
+            ${model ? `<span class="pm-model">${esc(model)}</span>` : ''}
+          </div>`;
+        }).join('');
+
+    const old = document.querySelector('.profile-modal-overlay');
+    if (old) old.remove();
+
+    const overlay = document.createElement('div');
+    overlay.className = 'profile-modal-overlay';
+    overlay.innerHTML = `<div class="profile-modal">
+      <div class="profile-modal-header">
+        <h3>Выберите профили · <span class="pm-counter">${selectedCount}/${remaining}</span></h3>
+        <div class="profile-modal-header-btns">
+          <button class="profile-modal-close-btn" data-action="pm-close-text">Закрыть</button>
+          <button class="profile-modal-close" data-action="pm-close">&times;</button>
+        </div>
+      </div>
+      <div class="profile-modal-search">
+        <input type="text" id="pmSearchInput" placeholder="Поиск профиля…" autocomplete="off">
+      </div>
+      <div class="profile-modal-list">${listHtml}</div>
+    </div>`;
+
+    document.body.appendChild(overlay);
+
+    const searchInput = document.getElementById('pmSearchInput');
+    if (searchInput) {
+      searchInput.focus();
+      searchInput.addEventListener('input', (e) => {
+        profileModalFilter = e.target.value;
+        renderProfileModal();
+      });
+    }
+
+    overlay.addEventListener('click', (e) => {
+      // Click on overlay background itself closes modal
+      if (e.target === overlay) {
+        closeProfileModal();
+        return;
+      }
+      const t = e.target.dataset.action ? e.target : e.target.closest('[data-action]');
+      if (!t) return;
+      const action = t.dataset.action;
+      if (action === 'pm-close-text' || action === 'pm-close') {
+        closeProfileModal();
+      } else if (action === 'pm-toggle') {
+        const name = t.dataset.pmName;
+        if (!name) return;
+        const idx = profileModalSelected.indexOf(name);
+        if (idx >= 0) {
+          // Deselect
+          profileModalSelected.splice(idx, 1);
+          renderProfileModal();
+        } else {
+          // Select
+          if (profileModalSelected.length >= remaining) return; // max reached
+          profileModalSelected.push(name);
+          // Auto-close if we've selected enough to fill all remaining slots
+          if (profileModalSelected.length >= remaining) {
+            closeProfileModal();
+          } else {
+            renderProfileModal();
+          }
+        }
+      }
+    });
+  }
+
+  function showProfileModal() {
+    profileModalOpen = true;
+    profileModalFilter = '';
+    profileModalSelected = [];
+    renderProfileModal();
+  }
+
+  function closeProfileModal() {
+    // Assign selected profiles to empty slots
+    if (profileModalSelected.length > 0) {
+      let selIdx = 0;
+      for (let i = 0; i < LEADER_SLOTS && selIdx < profileModalSelected.length; i++) {
+        if (leaders[i] === null) {
+          leaders[i] = profileModalSelected[selIdx];
+          selIdx++;
+        }
+      }
+      render();
+    }
+    profileModalOpen = false;
+    profileModalFilter = '';
+    profileModalSelected = [];
+    const overlay = document.querySelector('.profile-modal-overlay');
+    if (overlay) overlay.remove();
+  }
+
+  // Close modal on Escape
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && profileModalOpen) {
+      closeProfileModal();
+    }
+  });
+
+  // ---- Incremental render (не пересоздаёт DOM, только обновляет данные) ----
+  function updateProfileData() {
+    // Обновляем только данные в существующих карточках, не трогая чат
+    document.querySelectorAll('.card[data-name]').forEach(card => {
+      const name = card.dataset.name;
+      const p = profilesByName[name];
+      if (!p) return;
+
+      // Модель
+      const modelEl = card.querySelector('.model');
+      if (modelEl) modelEl.textContent = p.model || '—';
+
+      // Статус
+      const dot = card.querySelector('.status-dot');
+      if (dot) {
+        const status = p.task_status || 'idle';
+        dot.className = 'status-dot ' + status;
+        dot.title = status;
+      }
+
+      // Задача
+      const taskEl = card.querySelector('.task');
+      if (taskEl) {
+        const taskId = taskEl.querySelector('.task-id');
+        const taskTitle = taskEl.querySelector('.task-title');
+        if (taskId && p.task_id) taskId.textContent = p.task_id;
+        if (taskTitle && p.task_title) taskTitle.textContent = p.task_title;
+        if (p.task_id || p.task_title) {
+          taskEl.classList.remove('idle-task');
+          if (taskId) taskId.style.display = '';
+          if (taskTitle) taskTitle.style.display = '';
+        } else {
+          taskEl.classList.add('idle-task');
+          if (taskId) taskId.textContent = '—';
+          if (taskTitle) taskTitle.textContent = 'нет активной задачи';
+        }
+      }
+
+      // Таймер
+      const timer = card.querySelector('.timer');
+      if (timer) {
+        const sec = p.started_at_ms ? Math.max(0, Math.floor((Date.now() - p.started_at_ms) / 1000)) : 0;
+        timer.dataset.base = String(sec);
+        timer.dataset.started = String(p.started_at_ms || 0);
+        timer.className = 'timer' + (p.task_status === 'idle' ? ' idle-timer' : '');
+      }
+
+      // Очередь задач
+      const queueEl = card.querySelector('.task-queue');
+      const tasks = p.tasks || [];
+      const activeTaskId = p.task_id;
+      if (tasks.length > 1 && queueEl) {
+        const items = queueEl.querySelectorAll('.task-queue-item');
+        tasks.forEach((t, i) => {
+          const item = items[i];
+          if (item) {
+            const idEl = item.querySelector('.tq-id');
+            const boardEl = item.querySelector('.tq-board');
+            const statusEl = item.querySelector('.tq-status');
+            if (idEl) idEl.textContent = t.id;
+            if (boardEl) boardEl.textContent = (t.board || '?').substring(0, 10);
+            if (statusEl) { statusEl.className = 'tq-status ' + t.status; }
+            item.className = 'task-queue-item' + (t.id === activeTaskId ? ' active' : '');
+            item.title = '[' + (t.board || '?') + '] ' + (t.title || '');
+          }
+        });
+      } else if (tasks.length <= 1 && queueEl) {
+        queueEl.remove();
+      }
+    });
+
+    // Статус коннекта
+    const filled = leaders.filter(Boolean).length;
+    el.leadersCount.textContent = filled + '/' + LEADER_SLOTS;
+    el.allCount.textContent = Object.keys(profilesByName).length;
+  }
+
+  // Полный render (только при изменении состава профилей/лидеров)
+  function render() {
+    renderTop();
+    renderBottom();
+  }
+
+  // ---- Polling ----
+  async function tick() {
+    try {
+      const map = await loadProfiles();
+      const oldNames = Object.keys(profilesByName).sort().join(',');
+      const newNames = Object.keys(map).sort().join(',');
+
+      // Проверяем — изменился ли список профилей или лидеров
+      const oldLeaders = leaders.join(',');
+      profilesByName = map;
+      const known = new Set(Object.keys(map));
+      leaders = leaders.map(n => (n && known.has(n)) ? n : null);
+      ['orchestrator', 'rechelok', 'aitrainer'].forEach(d => {
+        if (known.has(d) && !leaders.includes(d)) {
+          const nullIdx = leaders.indexOf(null);
+          if (nullIdx !== -1) leaders[nullIdx] = d;
+        }
+      });
+      const newLeaders = leaders.join(',');
+
+      // Если состав изменился — загружаем сессии, потом рендерим
+      if (oldNames !== newNames || oldLeaders !== newLeaders) {
+        // Сначала загружаем сессии для всех лидеров
+        const curLeaders = leaders.filter(Boolean);
+        if (curLeaders.length > 0) {
+          await Promise.all(curLeaders.map(n => loadSessionsFor(n)));
+        }
+        // Теперь рендерим DOM с уже загруженными сессиями
+        render();
+      } else {
+        // Иначе только обновляем данные
+        updateProfileData();
+      }
+
+      // Обновляем только счётчики, не трогаем DOM чата
+      const filled = leaders.filter(Boolean).length;
+      el.leadersCount.textContent = filled + '/' + LEADER_SLOTS;
+      el.allCount.textContent = Object.keys(profilesByName).length;
+      setConn('live', 'live · API · ' + Object.keys(map).length);
+      lastError = '';
+    } catch (e) {
+      lastError = e.message || String(e);
+      setConn('error', 'error · ' + lastError);
+    }
+  }
+
+  // Uptime tick: update timer text locally every second
+  setInterval(() => {
+    document.querySelectorAll('.timer[data-base]').forEach(t => {
+      const base = Number(t.dataset.base || 0);
+      const started = Number(t.dataset.started || 0);
+      if (!started) {
+        t.textContent = fmtUptime(base);
+        return;
+      }
+      const sec = Math.max(0, Math.floor((Date.now() - started) / 1000));
+      t.textContent = fmtUptime(sec);
+    });
+  }, 1000);
+
+  // Keyboard: R = refresh
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'r' || e.key === 'R') {
+      if (document.activeElement && /input|textarea/i.test(document.activeElement.tagName)) return;
+      tick();
+    }
+  });
+
+  // ---- Boot ----
+  tick();
+  setInterval(tick, POLL_MS);
+
+})();
+</script>
+
+<script src="/views/config.js"></script>
+<script src="/views/utils.js"></script>
+<script src="/views/state.js"></script>
+<script src="/views/api.js"></script>
+<script src="/views/render.js"></script>
+<script src="/views/drag-drop.js"></script>
+<script src="/views/modal.js"></script>
+<script src="/views/actions.js"></script>
+
+</body>
+</html>

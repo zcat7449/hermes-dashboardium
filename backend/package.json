@@ -5,7 +5,6 @@
   "main": "index.js",
   "scripts": {
     "start": "node server.js",
-    "build": "esbuild ../frontend/views/dashboard.js --bundle --minify --outfile=../frontend/public/dashboard.js",
     "test": "node test-sessions.js && node test-http-sessions.js"
   },
   "keywords": [],
@@ -18,7 +17,5 @@
     "pg": "^8.14.3",
     "ws": "^8.21.0"
   },
-  "devDependencies": {
-    "esbuild": "^0.28.1"
-  }
+  "devDependencies": {}
 }

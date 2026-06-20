@@ -1,15 +1,26 @@
 (function () {
   'use strict';
 
+  // Module version marker for cache-busting verification.
+  window.Dashboard = window.Dashboard || {};
+  window.Dashboard._api_version = 3;
+
   const C = window.Dashboard.Config;
   const D = window.Dashboard.Data;
   const U = window.Dashboard.Utils;
+  // Render is loaded before api.js in index.html; use lazy access inside handlers
+  // to stay safe if module load order ever changes or cache serves stale ordering.
+  const R = window.Dashboard.Render;
+
+  function getRender() { return window.Dashboard.Render || R; }
 
   async function fetchJson(url, opts, timeoutMs) {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), timeoutMs || C.FETCH_TIMEOUT_MS);
+    const headers = Object.assign({}, (opts && opts.headers) || {});
+    if (C.AUTH) headers['Authorization'] = 'Basic ' + C.AUTH;
     try {
-      const r = await fetch(url, Object.assign({}, opts, { signal: ctrl.signal }));
+      const r = await fetch(url, Object.assign({}, opts || {}, { headers, signal: ctrl.signal }));
       if (!r.ok) throw new Error('HTTP ' + r.status);
       return await r.json();
     } finally {
@@ -203,12 +214,11 @@
     deleteSession,
     loadSessionMessages,
     loadSessionsFor,
-    // WebSocket
+    // Internal reconnect is handled by wsScheduleReconnect().
+    // wsReconnect is NOT exported — callers use wsConnect() directly.
     wsConnect,
     wsSend,
     wsClose,
-    // Internal reconnect is handled by wsReconnect().
-    wsReconnect,
   };
 
   // ---- Sessions loading (used by both WS handler and REST fallback) ----
@@ -249,7 +259,7 @@
       console.log('ws: connected');
       wsReconnectAttempt = 0;
       D.connState = 'live';
-      R.setConn('live', 'live · WS · ' + Object.keys(D.profilesByName).length);
+      getRender().setConn('live', 'live · WS · ' + Object.keys(D.profilesByName).length);
       // Stop REST fallback if it was running
       stopRestPolling();
     };
@@ -273,7 +283,8 @@
     };
 
     ws.onerror = (err) => {
-      console.error('ws: error', err);
+      console.error('ws: error', err && err.message);
+      err && err.preventDefault && err.preventDefault();
       // onclose will fire after onerror
     };
   }
@@ -341,21 +352,21 @@
       if (oldNames !== newNames || oldLeaders !== newLeaders) {
         const curLeaders = D.leaders.filter(Boolean);
         if (curLeaders.length > 0) {
-          await Promise.all(curLeaders.map(n => A.loadSessionsFor(n)));
+          await Promise.all(curLeaders.map(n => loadSessionsFor(n)));
         }
-        R.renderAll();
+        getRender().renderAll();
       } else {
-        R.updateProfileData();
+        getRender().updateProfileData();
       }
 
       const filled = D.leaders.filter(Boolean).length;
       D.els.leadersCount.textContent = filled + '/' + C.LEADER_SLOTS;
       D.els.allCount.textContent = Object.keys(D.profilesByName).length;
-      R.setConn('live', 'live · REST · ' + Object.keys(map).length);
+      getRender().setConn('live', 'live · REST · ' + Object.keys(map).length);
       D.lastError = '';
     } catch (e) {
       D.lastError = e.message || String(e);
-      R.setConn('error', 'error · ' + D.lastError);
+      getRender().setConn('error', 'error · ' + D.lastError);
     }
   }
 
@@ -381,25 +392,31 @@
         if (oldNames !== newNames || oldLeaders !== newLeaders) {
           const curLeaders = D.leaders.filter(Boolean);
           if (curLeaders.length > 0) {
-            Promise.all(curLeaders.map(n => A.loadSessionsFor(n))).then(() => R.renderAll());
+            Promise.all(curLeaders.map(n => loadSessionsFor(n))).then(() => getRender().renderAll());
           } else {
-            R.renderAll();
+            getRender().renderAll();
           }
         } else {
-          R.updateProfileData();
+          // Always reload sessions for leaders — chat may have updated via Telegram
+          const curLeaders = D.leaders.filter(Boolean);
+          if (curLeaders.length > 0) {
+            Promise.all(curLeaders.map(n => loadSessionsFor(n))).then(() => getRender().renderAll());
+          } else {
+            getRender().updateProfileData();
+          }
         }
 
         const filled = D.leaders.filter(Boolean).length;
         D.els.leadersCount.textContent = filled + '/' + C.LEADER_SLOTS;
         D.els.allCount.textContent = Object.keys(D.profilesByName).length;
-        R.setConn('live', 'live · WS · ' + Object.keys(map).length);
+        getRender().setConn('live', 'live · WS · ' + Object.keys(map).length);
         D.lastError = '';
         break;
       }
 
       case 'chat_response': {
         const { profile, response, session_id, new_session } = msg;
-        R.appendChat(profile, 'bot', String(response || ''));
+        getRender().appendChat(profile, 'bot', String(response || ''));
         if (new_session && session_id) {
           D.activeSessionMap[profile] = session_id;
           D.sessionsMap[profile] = D.sessionsMap[profile] || [];
@@ -410,35 +427,35 @@
             existing.message_count = (existing.message_count || 0) + 1;
             existing.last_message_at = new Date().toISOString();
           }
-          R.renderAll();
+          getRender().renderAll();
         } else if (session_id) {
           const list = D.sessionsMap[profile] || [];
           const s = list.find(x => x.id === session_id);
           if (s) {
             s.message_count = (s.message_count || 0) + 1;
             s.last_message_at = new Date().toISOString();
-            R.renderAll();
+            getRender().renderAll();
           }
         }
         break;
       }
 
       case 'chat_error': {
-        R.appendChat(msg.profile, 'bot', '⚠ chat error: ' + (msg.error || 'unknown'));
+        getRender().appendChat(msg.profile, 'bot', '⚠ chat error: ' + (msg.error || 'unknown'));
         break;
       }
 
       case 'optimize_response': {
-        R.appendChat(msg.profile, 'bot', '✓ контекст оптимизирован');
+        getRender().appendChat(msg.profile, 'bot', '✓ контекст оптимизирован');
         D.optimizing.delete(msg.profile);
-        R.renderAll();
+        getRender().renderAll();
         break;
       }
 
       case 'optimize_error': {
-        R.appendChat(msg.profile, 'bot', '⚠ optimize error: ' + (msg.error || 'unknown'));
+        getRender().appendChat(msg.profile, 'bot', '⚠ optimize error: ' + (msg.error || 'unknown'));
         D.optimizing.delete(msg.profile);
-        R.renderAll();
+        getRender().renderAll();
         break;
       }
 
