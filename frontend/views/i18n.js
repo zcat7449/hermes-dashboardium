@@ -1,6 +1,8 @@
 (function () {
   'use strict';
 
+  window.Dashboard = window.Dashboard || {};
+
   const LANG_KEY = 'dashboardium_lang';
   const DEFAULT_LANG = 'ru';
 

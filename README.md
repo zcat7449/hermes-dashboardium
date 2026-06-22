@@ -175,4 +175,10 @@ MIT License — see [LICENSE](LICENSE) for details.
 
 ---
 
+## Contact
+
+Created by [CTAC TEPEXOB](https://t.me/zcat7449) — feel free to reach out on Telegram.
+
+---
+
 *Built for [Hermes Agent](https://hermes-agent.nousresearch.com) by Nous Research.*
