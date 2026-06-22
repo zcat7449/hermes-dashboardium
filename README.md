@@ -7,7 +7,7 @@
 > **Hermes Profiles Dashboard** — real-time monitoring, chat, and Kanban task management for Hermes Agent profiles.
 
 ![Dashboardium Screenshot](screenshot.png)
-*Screenshot placeholder — replace with an actual screenshot of the dashboard.*
+*Dashboardium in action — real-time profile monitoring and Kanban management.*
 
 ---
 
@@ -143,11 +143,12 @@ dashboardium/
 │   ├── middleware/         # Auth and other middleware
 │   ├── services/          # Business logic (profiles, kanban, etc.)
 │   └── package.json       # Backend dependencies
-├── public/
-│   ├── index.html         # Main HTML entry
-│   ├── css/               # Stylesheets
-│   ├── js/                # Frontend JavaScript
-│   └── locales/           # i18n translation files (ru.json, en.json)
+├── frontend/
+│   ├── public/            # Static assets (CSS, JS, locales)
+│   │   ├── css/           # Stylesheets
+│   │   ├── js/            # Frontend JavaScript
+│   │   └── locales/       # i18n translation files (ru.json, en.json)
+│   └── views/             # EJS templates
 ├── .env.example           # Environment variable template
 ├── package.json           # Root package.json (start / test scripts)
 ├── setup.js               # gbrain auto-configuration
