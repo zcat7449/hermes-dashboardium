@@ -58,7 +58,7 @@ done
 
 ```bash
 # Clone the repository
-git clone https://github.com/nousresearch/dashboardium.git
+git clone https://github.com/zcat7449/dashboardium.git
 cd dashboardium
 
 # Install backend dependencies
@@ -120,13 +120,13 @@ All configuration is done via environment variables. Copy `.env.example` to `.en
 ┌──────────────┐ ┌──────────┐ ┌──────────────┐
 │ Hermes       │ │ Kanban   │ │ PostgreSQL   │
 │ Profiles     │ │ Boards   │ │ (optional)   │
-│ (File System)│ │ (JSON)   │ │              │
+│ (File System)│ │ (SQLite) │ │              │
 └──────────────┘ └──────────┘ └──────────────┘
 ```
 
 - **Frontend**: Vanilla JavaScript served as static files. Communicates with the backend via REST and WebSocket.
 - **Backend**: Express.js server with HTTP Basic Auth middleware, REST API routes, and a WebSocket server for real-time updates.
-- **Data Sources**: Reads Hermes profiles from the filesystem, Kanban boards from JSON files, and optionally persists sessions to PostgreSQL.
+- **Data Sources**: Reads Hermes profiles from the filesystem, Kanban boards from SQLite files, and optionally persists sessions to PostgreSQL.
 
 ---
 

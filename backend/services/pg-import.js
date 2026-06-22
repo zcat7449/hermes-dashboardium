@@ -1,9 +1,10 @@
 const fs = require('fs');
 const path = require('path');
+const { homedir } = require('os');
 const { PROFILES_DIR, PG_IMPORT_FROM_SQLITE } = require('../config');
 const { isPgAvailable, query } = require('../db');
 
-const REAL_HOME = '/root';
+const REAL_HOME = process.env.HOME || homedir();
 
 async function importSessionsFromSqlite() {
   if (!PG_IMPORT_FROM_SQLITE || !isPgAvailable()) return { imported: 0, files: [] };

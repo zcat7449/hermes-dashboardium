@@ -1,7 +1,7 @@
 const path = require('path');
+const { homedir } = require('os');
 
-// Use /root directly — kanban workspace overrides HOME and os.homedir()
-const REAL_HOME = '/root';
+const REAL_HOME = process.env.HOME || homedir();
 
 const PROFILES_DIR = process.env.PROFILES_DIR || path.join(REAL_HOME, '.hermes', 'profiles');
 const KANBAN_BOARDS_DIR = process.env.KANBAN_BOARDS_DIR || path.join(REAL_HOME, '.hermes', 'kanban', 'boards');
