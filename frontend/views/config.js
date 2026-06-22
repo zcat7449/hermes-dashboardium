@@ -101,4 +101,14 @@
   loginPass.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') loginBtn.click();
   });
+
+  // ---- Language switcher ----
+  const langSwitcher = document.getElementById('langSwitcher');
+  if (langSwitcher) {
+    const I18n = window.Dashboard.I18n;
+    langSwitcher.value = I18n.getLang();
+    langSwitcher.addEventListener('change', (e) => {
+      I18n.setLang(e.target.value);
+    });
+  }
 })();

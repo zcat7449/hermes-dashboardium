@@ -4,13 +4,15 @@
   const C = window.Dashboard.Config;
   const D = window.Dashboard.Data;
   const U = window.Dashboard.Utils;
+  const I18n = window.Dashboard.I18n;
+  const t = I18n.t;
 
   function sessionDisplayName(s) {
     if (s && s.title && s.title.trim()) return s.title.trim();
     if (s && s.last_message_at) {
       const d = new Date(s.last_message_at);
       const date = d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
-      return 'Сессия от ' + date;
+      return t('session_from') + ' ' + date;
     }
     if (s && s.id) {
       const m = String(s.id).match(/^sess_([a-z0-9]+)_/);
@@ -19,17 +21,17 @@
         if (isFinite(ts)) {
           const d = new Date(ts);
           const date = d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
-          return 'Сессия от ' + date;
+          return t('session_from') + ' ' + date;
         }
       }
       const m2 = String(s.id).match(/^(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})_/);
       if (m2) {
         const d = new Date(+m2[1], +m2[2] - 1, +m2[3], +m2[4], +m2[5], +m2[6]);
         const date = d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
-        return 'Сессия от ' + date;
+        return t('session_from') + ' ' + date;
       }
     }
-    return 'Сессия';
+    return t('session_label');
   }
 
   function renderSessionList(name) {
@@ -44,12 +46,12 @@
         <span class="sess-name">${U.esc(display)}</span>
         ${count}
         ${source}
-        <button type="button" data-action="sess-rename" data-name="${U.esc(name)}" data-sid="${U.esc(s.id)}" title="переименовать">✎</button>
-        <button type="button" class="sess-delete" data-action="sess-delete" data-name="${U.esc(name)}" data-sid="${U.esc(s.id)}" title="удалить">✕</button>
+        <button type="button" data-action="sess-rename" data-name="${U.esc(name)}" data-sid="${U.esc(s.id)}" title="${t('rename')}">✎</button>
+        <button type="button" class="sess-delete" data-action="sess-delete" data-name="${U.esc(name)}" data-sid="${U.esc(s.id)}" title="${t('delete')}">✕</button>
       </div>`;
     }).join('');
     return `<div class="session-list" data-session-list="${U.esc(name)}">${items}</div>
-      <button class="sess-new" data-action="sess-new" data-name="${U.esc(name)}">+ Новая сессия</button>`;
+      <button class="sess-new" data-action="sess-new" data-name="${U.esc(name)}">${t('new_session')}</button>`;
   }
 
   function renderCardBody(p) {
@@ -57,16 +59,16 @@
     const isRunning = status === 'running';
     const isBlocked = status === 'blocked';
     const dotClass = isRunning ? 'running' : (isBlocked ? 'blocked' : 'idle');
-    const model = p.model || '—';
+    const model = p.model || t('no_data');
     const task = (p.task_id || p.task_title) ? `
       <div class="task">
         <div class="task-id">
-          <span class="task-id-text">${U.esc(p.task_id || '—')}</span>
-          <button type="button" class="task-view-btn" data-action="task-view" data-board="${U.esc(p.kanban_board || '')}" data-task="${U.esc(p.task_id || '')}" title="Просмотр задачи">🔍</button>
+          <span class="task-id-text">${U.esc(p.task_id || t('no_data'))}</span>
+          <button type="button" class="task-view-btn" data-action="task-view" data-board="${U.esc(p.kanban_board || '')}" data-task="${U.esc(p.task_id || '')}" title="${t('task_view')}">🔍</button>
         </div>
         <div class="task-title">${U.esc(p.task_title || '')}</div>
       </div>` : `
-      <div class="task idle-task">— нет активной задачи —</div>`;
+      <div class="task idle-task">${t('no_active_task')}</div>`;
     const uptimeSec = U.getEffectiveUptime(p);
     const timerCls = isRunning || isBlocked ? '' : 'idle-timer';
     const timer = `<div class="timer ${timerCls}" data-started="${p.started_at_ms || 0}" data-base="${isRunning || isBlocked ? Math.floor(uptimeSec) : 0}">${U.fmtUptime(uptimeSec)}</div>`;
@@ -77,7 +79,7 @@
         <div class="task-queue-item${t.id === activeTaskId ? ' active' : ''}" title="[${U.esc(t.board || '?')}] ${U.esc(t.title || '')}">
           <span class="tq-board">${U.esc((t.board || '?').substring(0, 10))}</span>
           <span class="tq-id">${U.esc(t.id)}</span>
-          <button type="button" class="task-view-btn tq-view" data-action="task-view" data-board="${U.esc(t.board || '')}" data-task="${U.esc(t.id)}" title="Просмотр задачи">🔍</button>
+          <button type="button" class="task-view-btn tq-view" data-action="task-view" data-board="${U.esc(t.board || '')}" data-task="${U.esc(t.id)}" title="${t('task_view')}">🔍</button>
           <span class="tq-status ${U.esc(t.status)}"></span>
         </div>`).join('')}</div>`
       : '';
@@ -85,12 +87,12 @@
     const modelLine = model ? `${model} │ ${usageStr}` : usageStr;
     return `
       <div class="head">
-        <span class="drag-handle" data-action="drag-handle" title="Перетащить для смены порядка">⠿</span>
+        <span class="drag-handle" data-action="drag-handle" title="${t('drag_handle')}">⠿</span>
         <div class="name">${U.esc(p.name)}</div>
         <div class="status-dot ${dotClass}" title="${U.esc(status)}"></div>
         <div class="head-spacer"></div>
-        <button type="button" class="collapse-chat-btn" data-action="toggle-chat" data-name="${U.esc(p.name)}" title="Свернуть/развернуть чат">▾</button>
-        <button type="button" class="remove-leader-btn" data-action="remove-leader" data-name="${U.esc(p.name)}" title="Удалить лидера">✕</button>
+        <button type="button" class="collapse-chat-btn" data-action="toggle-chat" data-name="${U.esc(p.name)}" title="${t('collapse_chat')}">▾</button>
+        <button type="button" class="remove-leader-btn" data-action="remove-leader" data-name="${U.esc(p.name)}" title="${t('remove_leader')}">✕</button>
       </div>
       <div class="model">${U.esc(modelLine)}</div>
       ${task}
@@ -98,7 +100,7 @@
       ${queueHtml}
       <div class="actions">
         <button class="btn optimize" data-action="optimize" data-name="${U.esc(p.name)}" ${D.optimizing.has(p.name) ? 'disabled' : ''}>
-          ${D.optimizing.has(p.name) ? '⏳ …' : 'Оптимизировать контекст'}
+          ${D.optimizing.has(p.name) ? t('optimizing') : t('optimize')}
         </button>
       </div>
     `;
@@ -118,11 +120,11 @@
               <div class="name">${U.esc(name)}</div>
               <div class="status-dot idle" title="unknown"></div>
             </div>
-            <div class="model">— нет данных —</div>
-            <div class="task idle-task">профиль не отвечает</div>
+            <div class="model">${t('profile_no_data')}</div>
+            <div class="task idle-task">${t('profile_unreachable')}</div>
             <div class="timer idle-timer">00м 00с</div>
             <div class="actions">
-              <button class="btn optimize" disabled>Оптимизировать контекст</button>
+              <button class="btn optimize" disabled>${t('optimize')}</button>
             </div>
           </div>
         `);
@@ -130,25 +132,25 @@
       }
       const log = D.chatLog[name] || [];
       const logHtml = log.length === 0
-        ? '<div class="empty">диалог пуст</div>'
-        : log.slice(-20).map(m => `<div class="msg-${m.role}">${m.role === 'you' ? '›' : '‹'} ${U.esc(m.text)}</div>`).join('');
+        ? '<div class="empty">' + t('dialog_empty') + '</div>'
+        : log.slice(-20).map(m => `<div class="msg-${m.role}">${m.role === 'you' ? t('msg_you') : t('msg_bot')} ${U.esc(m.text)}</div>`).join('');
       const sessionList = renderSessionList(name);
       const activeSid = D.activeSessionMap[name];
       const activeLabel = activeSid
         ? sessionDisplayName((D.sessionsMap[name] || []).find(x => x.id === activeSid) || { id: activeSid })
-        : 'новая сессия';
+        : t('new_session_label');
       const isCollapsed = D.chatCollapsed[name];
       frag.push(`
         <div class="card" data-name="${U.esc(name)}" data-slot="${idx}">
           ${renderCardBody(p)}
           <div class="chat"${isCollapsed ? ' style="display:none"' : ''}>
-            <div style="font-size:9px; color: rgba(224,224,224,0.4); margin-bottom:2px; letter-spacing:0.5px; text-transform:uppercase;">Сессии</div>
+            <div style="font-size:9px; color: rgba(224,224,224,0.4); margin-bottom:2px; letter-spacing:0.5px; text-transform:uppercase;">${t('sessions')}</div>
             ${sessionList}
-            <div style="font-size:9px; color: rgba(224,224,224,0.4); margin: 4px 0 2px; letter-spacing:0.5px; text-transform:uppercase;">Чат · ${U.esc(activeLabel)}</div>
+            <div style="font-size:9px; color: rgba(224,224,224,0.4); margin: 4px 0 2px; letter-spacing:0.5px; text-transform:uppercase;">${t('chat')} · ${U.esc(activeLabel)}</div>
             <div class="log" data-chat-log="${U.esc(name)}">${logHtml}</div>
             <div class="row">
-              <input type="text" data-chat-input="${U.esc(name)}" placeholder="сообщение…${activeSid ? '' : ' (новая сессия)'}" autocomplete="off">
-              <button data-action="send" data-name="${U.esc(name)}">Отправить</button>
+              <input type="text" data-chat-input="${U.esc(name)}" placeholder="${activeSid ? t('message_placeholder') : t('message_placeholder_new')}" autocomplete="off">
+              <button data-action="send" data-name="${U.esc(name)}">${t('send')}</button>
             </div>
           </div>
         </div>
@@ -157,7 +159,7 @@
     const gridCols = filled === 0 ? 1 : filled;
     if (filled === 0) {
       D.els.topGrid.style.gridTemplateRows = '1fr';
-      frag.push(`<div class="card empty-slot" style="grid-column: 1 / -1; grid-row: 1 / -1; height: 100%;"><button class="assign-btn" data-action="pick">Назначить</button></div>`);
+      frag.push(`<div class="card empty-slot" style="grid-column: 1 / -1; grid-row: 1 / -1; height: 100%;"><button class="assign-btn" data-action="pick">${t('assign_btn')}</button></div>`);
     } else {
       D.els.topGrid.style.gridTemplateRows = '';
     }
@@ -175,11 +177,11 @@
     }
     D.els.allCount.textContent = allNames.length;
     D.els.filterMeta.textContent = D.filterText
-      ? `фильтр: ${list.length}/${allNames.length - leaderSet.size}`
+      ? t('filter_meta') + ': ' + list.length + '/' + (allNames.length - leaderSet.size)
       : '';
     if (list.length === 0) {
       D.els.bottomGrid.innerHTML = `<div class="card" style="grid-column: 1/-1; cursor: default; min-height: 80px; align-items: center; justify-content: center; color: rgba(224,224,224,0.4);">
-        ${D.filterText ? 'ничего не найдено по фильтру' : 'нет профилей вне лидеров'}
+        ${D.filterText ? t('no_profiles_filter') : t('no_profiles_outside')}
       </div>`;
       return;
     }
@@ -201,7 +203,7 @@
     const leaderSet = new Set(D.leaders.filter(Boolean));
     const candidates = allNames.filter(n => !leaderSet.has(n));
     if (candidates.length === 0) {
-      D.els.addLeaderDropdown.innerHTML = '<div class="dd-empty">все профили уже назначены</div>';
+      D.els.addLeaderDropdown.innerHTML = '<div class="dd-empty">' + t('all_assigned') + '</div>';
     } else {
       D.els.addLeaderDropdown.innerHTML = candidates.map(n =>
         `<div class="dd-item" data-action="add-leader" data-name="${U.esc(n)}">${U.esc(n)}</div>`
@@ -220,7 +222,7 @@
       if (empty) empty.remove();
       const div = document.createElement('div');
       div.className = 'msg-' + role;
-      div.textContent = (role === 'you' ? '› ' : '‹ ') + text;
+      div.textContent = (role === 'you' ? t('msg_you') + ' ' : t('msg_bot') + ' ') + text;
       logEl.appendChild(div);
       logEl.scrollTop = logEl.scrollHeight;
     }
@@ -231,8 +233,8 @@
     const logEl = D.els.topGrid.querySelector(`[data-chat-log="${CSS.escape(name)}"]`);
     if (logEl) {
       logEl.innerHTML = log.length === 0
-        ? '<div class="empty">диалог пуст</div>'
-        : log.map(m => `<div class="msg-${m.role}">${m.role === 'you' ? '›' : '‹'} ${U.esc(m.text)}</div>`).join('');
+        ? '<div class="empty">' + t('dialog_empty') + '</div>'
+        : log.map(m => `<div class="msg-${m.role}">${m.role === 'you' ? t('msg_you') : t('msg_bot')} ${U.esc(m.text)}</div>`).join('');
       logEl.scrollTop = logEl.scrollHeight;
     }
   }
@@ -282,8 +284,8 @@
           if (taskTitle) taskTitle.style.display = '';
         } else {
           taskEl.classList.add('idle-task');
-          if (taskId) taskId.textContent = '—';
-          if (taskTitle) taskTitle.textContent = 'нет активной задачи';
+          if (taskId) taskId.textContent = t('no_data');
+          if (taskTitle) taskTitle.textContent = t('no_active_task');
         }
       }
 

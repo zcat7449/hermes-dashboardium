@@ -965,9 +965,15 @@ main {
 
 <header>
   <h1><span class="dot"></span>Dashboardium</h1>
-  <div class="conn" id="conn">
-    <span class="pulse"></span>
-    <span id="connText">live · API</span>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <select id="langSwitcher" style="background:rgba(0,0,0,0.2);border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:6px;font-size:12px;cursor:pointer;outline:none;">
+      <option value="ru">Русский</option>
+      <option value="en">English</option>
+    </select>
+    <div class="conn" id="conn">
+      <span class="pulse"></span>
+      <span id="connText">live · API</span>
+    </div>
   </div>
 </header>
 
@@ -1006,14 +1012,15 @@ main {
   </div>
 </div>
 
+<script src="/views/i18n.js?v=1"></script>
 <script src="/views/config.js?v=5"></script>
 <script src="/views/utils.js?v=4"></script>
 <script src="/views/state.js?v=3"></script>
-<script src="/views/render.js?v=6"></script>
-<script src="/views/api.js?v=3"></script>
+<script src="/views/render.js?v=7"></script>
+<script src="/views/api.js?v=4"></script>
 <script src="/views/drag-drop.js?v=3"></script>
 <script src="/views/modal.js?v=3"></script>
-<script src="/views/task-modal.js?v=1"></script>
+<script src="/views/task-modal.js?v=2"></script>
 <script src="/views/actions.js?v=3"></script>
 
 </body>

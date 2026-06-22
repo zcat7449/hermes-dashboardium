@@ -1,0 +1,10 @@
+{
+  "name": "dashboardium",
+  "version": "1.0.0",
+  "description": "Hermes Profiles Dashboard — real-time monitoring and chat for Hermes Agent profiles",
+  "license": "MIT",
+  "scripts": {
+    "start": "node backend/server.js",
+    "test": "cd backend && npm test"
+  }
+}
