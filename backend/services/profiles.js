@@ -4,7 +4,7 @@ const yaml = require('js-yaml');
 const { PROFILES_DIR } = require('../config');
 
 const { homedir } = require('os');
-const REAL_HOME = homedir();  // ~/<user>, портальнее чем хардкод /root
+const REAL_HOME = homedir();
 
 function readModel(configPath) {
   try {

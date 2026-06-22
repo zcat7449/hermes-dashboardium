@@ -89,8 +89,8 @@ All configuration is done via environment variables. Copy `.env.example` to `.en
 | `HOST` | `0.0.0.0` | Bind address |
 | `AUTH_USERNAME` | `admin` | HTTP Basic Auth username |
 | `AUTH_PASSWORD` | *(required)* | HTTP Basic Auth password |
-| `PROFILES_DIR` | `/root/.hermes/profiles` | Path to Hermes profiles directory |
-| `KANBAN_BOARDS_DIR` | `/root/.hermes/kanban/boards` | Path to Kanban boards directory |
+| `PROFILES_DIR` | `$HOME/.hermes/profiles` | Path to Hermes profiles directory |
+| `KANBAN_BOARDS_DIR` | `$HOME/.hermes/kanban/boards` | Path to Kanban boards directory |
 | `HERMES_BIN` | `hermes` | Hermes CLI binary name or path |
 | `DATABASE_URL` | *(optional)* | PostgreSQL connection string for session persistence |
 | `FRONTEND_ORIGIN` | `http://localhost:3010` | Allowed CORS origin for the frontend |
@@ -111,7 +111,7 @@ All configuration is done via environment variables. Copy `.env.example` to `.en
 │              Express Server (Node.js)                │
 │  ┌──────────┐  ┌──────────┐  ┌──────────────────┐  │
 │  │ Auth     │  │ REST API │  │ WebSocket Server  │  │
-│  │ Middleware│  │ Routes   │  │ (Socket.IO)       │  │
+│  │ Middleware│  │ Routes   │  │ (ws)              │  │
 │  └──────────┘  └──────────┘  └──────────────────┘  │
 └──────────────────────┬──────────────────────────────┘
                        │
