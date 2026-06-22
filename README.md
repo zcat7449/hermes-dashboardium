@@ -69,6 +69,9 @@ cd backend && npm install && cd ..
 cp .env.example .env
 # Edit .env with your settings (see Configuration below)
 
+# Auto-configure gbrain for all Hermes profiles (recommended)
+node setup.js
+
 # Start the server
 npm start
 ```
