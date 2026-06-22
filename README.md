@@ -32,6 +32,29 @@
 - [Hermes Agent](https://hermes-agent.nousresearch.com) installed and configured
 - PostgreSQL (optional, for session persistence)
 
+### Recommended: gbrain (Personal Knowledge Base)
+
+Dashboardium works best with [gbrain](https://github.com/nousresearch/gbrain) — a personal knowledge base that stores project docs, QA reports, and deployment history. When gbrain is connected, the dashboard can surface relevant context from past work.
+
+**Check if gbrain is already installed:**
+```bash
+curl -s http://localhost:7333/mcp/health 2>/dev/null && echo "✅ gbrain already running" || echo "❌ gbrain not found"
+```
+
+**If not installed, set it up:**
+```bash
+# See: https://github.com/nousresearch/gbrain#quick-start
+```
+
+**Then add to every Hermes profile config:**
+```bash
+for profile in default orchestrator backend frontend devops qa seo devsecops rag; do
+  hermes config set mcp_servers.gbrain.url "http://localhost:7333/mcp" --profile "$profile"
+  hermes config set mcp_servers.gbrain.headers.Authorization "Bearer your-gbrain-token" --profile "$profile"
+  hermes config set mcp_servers.gbrain.timeout 60 --profile "$profile"
+done
+```
+
 ### Quick Start
 
 ```bash
