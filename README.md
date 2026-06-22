@@ -20,7 +20,6 @@
 - **i18n (RU / EN)** — Full Russian and English interface. Switch languages on the fly.
 - **HTTP Basic Auth** — Simple, secure authentication via `AUTH_USERNAME` / `AUTH_PASSWORD` environment variables.
 - **PostgreSQL (Optional)** — Session persistence and history storage when a database is configured.
-- **Docker Support** — Run with a single `docker compose up` (optional).
 
 ---
 
@@ -77,14 +76,6 @@ npm start
 ```
 
 The dashboard will be available at **http://localhost:3010**.
-
-### Docker (Optional)
-
-```bash
-docker compose up -d
-```
-
-Make sure your `.env` file is present in the project root before running Docker.
 
 ---
 
@@ -159,7 +150,7 @@ dashboardium/
 │   └── locales/           # i18n translation files (ru.json, en.json)
 ├── .env.example           # Environment variable template
 ├── package.json           # Root package.json (start / test scripts)
-├── docker-compose.yml     # Docker Compose configuration (optional)
+├── setup.js               # gbrain auto-configuration
 └── README.md              # This file
 ```
 
