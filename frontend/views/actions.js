@@ -158,8 +158,6 @@
       const name = t.dataset.name;
       const input = D.els.topGrid.querySelector(`[data-chat-input="${CSS.escape(name)}"]`);
       if (input) doSend(name, input);
-    } else if (action === 'promote') {
-      promoteToTop(t.dataset.name);
     } else if (action === 'pick') {
       Modal.showProfileModal();
     } else if (action === 'demote') {
@@ -249,6 +247,13 @@
     } else if (action === 'toggle-chat') {
       e.stopPropagation();
       toggleChatCollapse(t.dataset.name);
+    } else if (action === 'task-view') {
+      e.stopPropagation();
+      const board = t.dataset.board;
+      const taskId = t.dataset.task;
+      if (board && taskId) {
+        window.Dashboard.TaskModal.showTaskModal(board, taskId);
+      }
     }
   });
 

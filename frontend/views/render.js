@@ -60,7 +60,10 @@
     const model = p.model || '—';
     const task = (p.task_id || p.task_title) ? `
       <div class="task">
-        <div class="task-id">${U.esc(p.task_id || '—')}</div>
+        <div class="task-id">
+          <span class="task-id-text">${U.esc(p.task_id || '—')}</span>
+          <button type="button" class="task-view-btn" data-action="task-view" data-board="${U.esc(p.kanban_board || '')}" data-task="${U.esc(p.task_id || '')}" title="Просмотр задачи">🔍</button>
+        </div>
         <div class="task-title">${U.esc(p.task_title || '')}</div>
       </div>` : `
       <div class="task idle-task">— нет активной задачи —</div>`;
@@ -74,6 +77,7 @@
         <div class="task-queue-item${t.id === activeTaskId ? ' active' : ''}" title="[${U.esc(t.board || '?')}] ${U.esc(t.title || '')}">
           <span class="tq-board">${U.esc((t.board || '?').substring(0, 10))}</span>
           <span class="tq-id">${U.esc(t.id)}</span>
+          <button type="button" class="task-view-btn tq-view" data-action="task-view" data-board="${U.esc(t.board || '')}" data-task="${U.esc(t.id)}" title="Просмотр задачи">🔍</button>
           <span class="tq-status ${U.esc(t.status)}"></span>
         </div>`).join('')}</div>`
       : '';
@@ -81,8 +85,12 @@
     const modelLine = model ? `${model} │ ${usageStr}` : usageStr;
     return `
       <div class="head">
+        <span class="drag-handle" data-action="drag-handle" title="Перетащить для смены порядка">⠿</span>
         <div class="name">${U.esc(p.name)}</div>
         <div class="status-dot ${dotClass}" title="${U.esc(status)}"></div>
+        <div class="head-spacer"></div>
+        <button type="button" class="collapse-chat-btn" data-action="toggle-chat" data-name="${U.esc(p.name)}" title="Свернуть/развернуть чат">▾</button>
+        <button type="button" class="remove-leader-btn" data-action="remove-leader" data-name="${U.esc(p.name)}" title="Удалить лидера">✕</button>
       </div>
       <div class="model">${U.esc(modelLine)}</div>
       ${task}
@@ -131,10 +139,7 @@
         : 'новая сессия';
       const isCollapsed = D.chatCollapsed[name];
       frag.push(`
-        <div class="card" data-name="${U.esc(name)}" data-slot="${idx}" draggable="true">
-          <button type="button" class="remove-leader-btn" data-action="remove-leader" data-name="${U.esc(name)}" title="Удалить лидера">✕</button>
-          <div class="drag-handle" data-action="drag-handle" title="Перетащить для смены порядка">⠿</div>
-          <button type="button" class="collapse-chat-btn" data-action="toggle-chat" data-name="${U.esc(name)}" title="${isCollapsed ? 'Развернуть чат' : 'Свернуть чат'}">${isCollapsed ? '▸' : '▾'}</button>
+        <div class="card" data-name="${U.esc(name)}" data-slot="${idx}">
           ${renderCardBody(p)}
           <div class="chat"${isCollapsed ? ' style="display:none"' : ''}>
             <div style="font-size:9px; color: rgba(224,224,224,0.4); margin-bottom:2px; letter-spacing:0.5px; text-transform:uppercase;">Сессии</div>
@@ -149,7 +154,7 @@
         </div>
       `);
     });
-    const gridCols = filled === 0 ? 1 : (filled <= 2 ? filled : 4);
+    const gridCols = filled === 0 ? 1 : filled;
     if (filled === 0) {
       D.els.topGrid.style.gridTemplateRows = '1fr';
       frag.push(`<div class="card empty-slot" style="grid-column: 1 / -1; grid-row: 1 / -1; height: 100%;"><button class="assign-btn" data-action="pick">Назначить</button></div>`);
@@ -180,7 +185,7 @@
     }
     D.els.bottomGrid.innerHTML = list.map(name => {
       const p = D.profilesByName[name];
-      return `<div class="card" data-name="${U.esc(name)}" data-action="promote" data-name="${U.esc(name)}">
+      return `<div class="card" data-name="${U.esc(name)}">
         ${renderCardBody(p)}
       </div>`;
     }).join('');
@@ -267,7 +272,7 @@
 
       const taskEl = card.querySelector('.task');
       if (taskEl) {
-        const taskId = taskEl.querySelector('.task-id');
+        const taskId = taskEl.querySelector('.task-id-text');
         const taskTitle = taskEl.querySelector('.task-title');
         if (taskId && p.task_id) taskId.textContent = p.task_id;
         if (taskTitle && p.task_title) taskTitle.textContent = p.task_title;

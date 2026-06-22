@@ -1007,9 +1007,9 @@ main {
 </div>
 
 <script src="/views/config.js?v=5"></script>
-<script src="/views/utils.js?v=4"></script>
+<script src="/views/utils.js?v=3"></script>
 <script src="/views/state.js?v=3"></script>
-<script src="/views/render.js?v=6"></script>
+<script src="/views/render.js?v=3"></script>
 <script src="/views/api.js?v=3"></script>
 <script src="/views/drag-drop.js?v=3"></script>
 <script src="/views/modal.js?v=3"></script>

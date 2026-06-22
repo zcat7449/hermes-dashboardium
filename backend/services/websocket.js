@@ -3,6 +3,8 @@
 const WebSocket = require('ws');
 const { buildProfilesResponse } = require('../routes/profiles');
 const { hermesChat, parseHermesChatOutput, sanitizeChatMessage } = require('./hermes-cli');
+const { getCachedSessions } = require('./cache');
+const { exportHermesSession } = require('./hermes-cli');
 const { checkChatRateLimit } = require('../middleware/rate-limit');
 const auditLog = require('../middleware/audit');
 const { isPgAvailable, insertSessionMessage } = require('../db');
@@ -13,6 +15,9 @@ const WS_POLL_MS = 5000; // server-side polling interval (same as old client-sid
 let wss = null;
 let pollTimer = null;
 let pollSeq = 0;
+
+// Track last known message_count per profile per session for delta push
+const lastSessionCounts = {}; // { profile: { sessionId: message_count } }
 
 function initWebSocket(httpServer) {
   wss = new WebSocket.Server({ server: httpServer, path: '/ws' });
@@ -55,12 +60,52 @@ function startPolling() {
   pollTimer = setInterval(async () => {
     if (!wss || wss.clients.size === 0) return; // skip when no clients
     try {
-      // Invalidate session caches so clients get fresh data
-      const { sessionsCache, usageCache } = require('./cache');
+      // Clear session cache so message_count is fresh for delta detection
+      const { sessionsCache } = require('./cache');
       sessionsCache.clear();
-      usageCache.clear();
       const data = await buildProfilesResponse(null);
       pollSeq++;
+
+      // Check for new messages in sessions (delta push)
+      for (const profile of data) {
+        const name = profile.name;
+        try {
+          const sessions = await getCachedSessions(name);
+          for (const s of sessions) {
+            const sid = s.id;
+            const count = s.message_count || 0;
+            const prev = lastSessionCounts[name] && lastSessionCounts[name][sid];
+            if (prev !== undefined && count > prev) {
+              // New messages detected — fetch and push them
+              const session = await exportHermesSession(name, sid);
+              if (session && Array.isArray(session.messages)) {
+                const newMsgs = session.messages.slice(prev);
+                for (const m of newMsgs) {
+                  if (m.role === 'user' || m.role === 'assistant') {
+                    const text = m.content || '';
+                    if (text) {
+                      broadcast(JSON.stringify({
+                        type: 'chat_update',
+                        profile: name,
+                        session_id: sid,
+                        role: m.role === 'user' ? 'you' : 'bot',
+                        text: text,
+                        timestamp: parseFloat(m.timestamp) || Date.now() / 1000,
+                      }));
+                    }
+                  }
+                }
+              }
+            }
+            // Update tracked count
+            if (!lastSessionCounts[name]) lastSessionCounts[name] = {};
+            lastSessionCounts[name][sid] = count;
+          }
+        } catch (e) {
+          // Silently skip profiles with session errors
+        }
+      }
+
       const payload = JSON.stringify({
         type: 'profiles',
         seq: pollSeq,

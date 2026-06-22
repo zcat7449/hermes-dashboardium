@@ -57,7 +57,13 @@
     let started_at_ms = null;
     if (raw.started_at) {
       const v = Number(raw.started_at);
-      if (!isNaN(v)) started_at_ms = v < 1e12 ? v * 1000 : v;
+      if (!isNaN(v)) {
+        started_at_ms = v < 1e12 ? v * 1000 : v;
+      } else {
+        // Try parsing as ISO date string
+        const d = new Date(raw.started_at);
+        if (!isNaN(d.getTime())) started_at_ms = d.getTime();
+      }
     } else if (raw.started_at_ms) {
       started_at_ms = Number(raw.started_at_ms);
     }
@@ -68,6 +74,7 @@
       task_id,
       task_title,
       task_status,
+      kanban_board: raw.kanban_board || null,
       tasks: raw.tasks || [],
       usage_input: raw.usage_input || 0,
       usage_output: raw.usage_output || 0,

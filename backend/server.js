@@ -45,15 +45,17 @@ const {
 const app = express();
 app.set('trust proxy', 1);
 
-// Frontend static routes
-app.use('/public', express.static(path.join(FRONTEND_DIR, 'public')));
-app.get('/', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'views', 'index.html')));
-
 // Middleware stack
 app.use(corsMiddleware);
 app.use(express.json({ limit: '8kb' }));
 app.use(globalRateLimitMiddleware);
+
+// Frontend static routes — public (no auth), so browser can load the UI
+app.use('/public', express.static(path.join(FRONTEND_DIR, 'public')));
+app.get('/', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'views', 'index.html')));
 app.use(express.static(FRONTEND_DIR));
+
+// API routes — behind auth
 app.use('/api', pathGuardMiddleware);
 app.use('/api', basicAuthMiddleware);
 

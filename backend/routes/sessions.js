@@ -199,7 +199,7 @@ function mountSessionsRoutes(app) {
     res.status(501).json({ error: 'not implemented', detail: 'session rename not implemented' });
   });
 
-  // DELETE session (NOOP)
+  // DELETE session
   app.delete('/api/profiles/:profile/sessions/:id', async (req, res) => {
     const profile = req.params.profile;
     const id = req.params.id;
@@ -207,8 +207,20 @@ function mountSessionsRoutes(app) {
       res.status(400).json({ error: 'invalid profile or session id' });
       return;
     }
-    invalidateProfilesResponseCache();
-    res.status(501).json({ error: 'not implemented', detail: 'session delete not implemented' });
+    try {
+      const ok = await deleteHermesSession(profile, id);
+      if (ok) {
+        // Invalidate caches so next list reflects the deletion
+        invalidateProfilesResponseCache();
+        sessionsCache.delete(profile);
+        res.json({ profile, session_id: id, status: 'deleted' });
+      } else {
+        res.status(500).json({ error: 'failed to delete session' });
+      }
+    } catch (err) {
+      console.error('delete session error', err);
+      res.status(500).json({ error: 'failed to delete session', detail: String(err.message || err) });
+    }
   });
 }
 

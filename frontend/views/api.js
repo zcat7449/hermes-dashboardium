@@ -181,24 +181,63 @@
 
   async function loadSessionMessages(name, sid) {
     if (!sid) return;
-    if (D.loadedSessions[name] === sid && D.chatLog[name] && D.chatLog[name].length > 0) return;
     D.loadedSessions[name] = sid;
     try {
       const r = await fetchJson(C.API_BASE + '/api/profiles/' + encodeURIComponent(name) + '/sessions/' + encodeURIComponent(sid) + '/messages');
       const msgs = (r && r.messages) || [];
-      D.chatLog[name] = [];
+      const existing = D.chatLog[name] || [];
+      const existingSet = new Set(existing.map(m => m.ts + '|' + m.text));
+      let added = 0;
       for (const m of msgs) {
         if (m.role === 'user' || m.role === 'assistant') {
           const text = m.content || '';
           if (text) {
-            D.chatLog[name].push({ role: m.role === 'user' ? 'you' : 'bot', text, ts: (m.timestamp || 0) * 1000 });
+            const key = ((m.timestamp || 0) * 1000) + '|' + text;
+            if (!existingSet.has(key)) {
+              existing.push({ role: m.role === 'user' ? 'you' : 'bot', text, ts: (m.timestamp || 0) * 1000 });
+              existingSet.add(key);
+              added++;
+            }
           }
         }
       }
-      if (D.chatLog[name].length > 100) D.chatLog[name] = D.chatLog[name].slice(-100);
+      if (existing.length > 100) D.chatLog[name] = existing.slice(-100);
+      else D.chatLog[name] = existing;
+      if (added > 0) getRender().renderLog(name);
     } catch (e) {
       console.warn('load messages error', e);
     }
+  }
+
+  // ---- Task API ----
+  async function fetchTaskDetails(board, taskId) {
+    return fetchJson(C.API_BASE + '/api/tasks/' + encodeURIComponent(board) + '/' + encodeURIComponent(taskId));
+  }
+  async function blockTask(board, taskId, reason) {
+    return fetchJson(C.API_BASE + '/api/tasks/' + encodeURIComponent(board) + '/' + encodeURIComponent(taskId) + '/block', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason: reason || 'Blocked from Dashboardium' }),
+    });
+  }
+  async function unblockTask(board, taskId, reason) {
+    return fetchJson(C.API_BASE + '/api/tasks/' + encodeURIComponent(board) + '/' + encodeURIComponent(taskId) + '/unblock', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason: reason || 'Unblocked from Dashboardium' }),
+    });
+  }
+  async function reassignTask(board, taskId, assignee) {
+    return fetchJson(C.API_BASE + '/api/tasks/' + encodeURIComponent(board) + '/' + encodeURIComponent(taskId) + '/reassign', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ assignee }),
+    });
+  }
+  async function archiveTask(board, taskId) {
+    return fetchJson(C.API_BASE + '/api/tasks/' + encodeURIComponent(board) + '/' + encodeURIComponent(taskId) + '/archive', {
+      method: 'POST',
+    });
   }
 
   window.Dashboard.API = {
@@ -214,6 +253,11 @@
     deleteSession,
     loadSessionMessages,
     loadSessionsFor,
+    fetchTaskDetails,
+    blockTask,
+    unblockTask,
+    reassignTask,
+    archiveTask,
     // Internal reconnect is handled by wsScheduleReconnect().
     // wsReconnect is NOT exported — callers use wsConnect() directly.
     wsConnect,
@@ -340,24 +384,11 @@
   async function restPollTick() {
     try {
       const map = await loadProfiles();
-      const oldNames = Object.keys(D.profilesByName).sort().join(',');
-      const newNames = Object.keys(map).sort().join(',');
-
-      const oldLeaders = D.leaders.join(',');
       D.profilesByName = map;
       const known = new Set(Object.keys(map));
       D.leaders = D.leaders.map(n => (n && known.has(n)) ? n : null);
-      const newLeaders = D.leaders.join(',');
 
-      if (oldNames !== newNames || oldLeaders !== newLeaders) {
-        const curLeaders = D.leaders.filter(Boolean);
-        if (curLeaders.length > 0) {
-          await Promise.all(curLeaders.map(n => loadSessionsFor(n)));
-        }
-        getRender().renderAll();
-      } else {
-        getRender().updateProfileData();
-      }
+      getRender().updateProfileData();
 
       const filled = D.leaders.filter(Boolean).length;
       D.els.leadersCount.textContent = filled + '/' + C.LEADER_SLOTS;
@@ -380,30 +411,34 @@
           const p = U.normProfile(raw);
           if (p.name) map[p.name] = p;
         }
-        const oldNames = Object.keys(D.profilesByName).sort().join(',');
-        const newNames = Object.keys(map).sort().join(',');
 
-        const oldLeaders = D.leaders.join(',');
         D.profilesByName = map;
         const known = new Set(Object.keys(map));
         D.leaders = D.leaders.map(n => (n && known.has(n)) ? n : null);
-        const newLeaders = D.leaders.join(',');
 
-        if (oldNames !== newNames || oldLeaders !== newLeaders) {
-          const curLeaders = D.leaders.filter(Boolean);
-          if (curLeaders.length > 0) {
-            Promise.all(curLeaders.map(n => loadSessionsFor(n))).then(() => getRender().renderAll());
-          } else {
-            getRender().renderAll();
-          }
-        } else {
-          // Always reload sessions for leaders — chat may have updated via Telegram
-          const curLeaders = D.leaders.filter(Boolean);
-          if (curLeaders.length > 0) {
-            Promise.all(curLeaders.map(n => loadSessionsFor(n))).then(() => getRender().renderAll());
-          } else {
-            getRender().updateProfileData();
-          }
+        // Only update profile data (status, usage, timer) — don't re-render chat
+        getRender().updateProfileData();
+
+        // Refresh sessions list for leaders (to get fresh message_count for delta detection)
+        const curLeaders = D.leaders.filter(Boolean);
+        for (const name of curLeaders) {
+          listSessions(name).then(list => {
+            D.sessionsMap[name] = list;
+            if (D.activeSessionMap[name] === undefined && list.length > 0) {
+              D.activeSessionMap[name] = list[0].id;
+            }
+            // Check for new messages in active session
+            const activeSid = D.activeSessionMap[name];
+            if (!activeSid) return;
+            const activeSession = list.find(s => s.id === activeSid);
+            if (!activeSession) return;
+            const prevCount = D._lastMsgCount[name + ':' + activeSid];
+            const curCount = activeSession.message_count || 0;
+            if (prevCount !== undefined && curCount > prevCount) {
+              loadSessionMessages(name, activeSid);
+            }
+            D._lastMsgCount[name + ':' + activeSid] = curCount;
+          });
         }
 
         const filled = D.leaders.filter(Boolean).length;
@@ -411,6 +446,25 @@
         D.els.allCount.textContent = Object.keys(D.profilesByName).length;
         getRender().setConn('live', 'live · WS · ' + Object.keys(map).length);
         D.lastError = '';
+        break;
+      }
+
+      case 'chat_update': {
+        const { profile, role, text, session_id } = msg;
+        if (!profile || !text) break;
+        // Ensure chat log exists
+        if (!D.chatLog[profile]) D.chatLog[profile] = [];
+        // Append via appendChat — no DOM re-render, scroll preserved
+        getRender().appendChat(profile, role, text);
+        // Update session message count if we have it
+        if (session_id) {
+          const list = D.sessionsMap[profile] || [];
+          const s = list.find(x => x.id === session_id);
+          if (s) {
+            s.message_count = (s.message_count || 0) + 1;
+            s.last_message_at = new Date().toISOString();
+          }
+        }
         break;
       }
 

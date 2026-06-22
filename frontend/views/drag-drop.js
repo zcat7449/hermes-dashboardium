@@ -6,7 +6,10 @@
   const R = window.Dashboard.Render;
 
   function handleDragStart(e) {
-    const card = e.target.closest('.card[data-name][data-slot]');
+    // Only allow drag from the drag-handle element, not from anywhere on the card
+    const handle = e.target.closest('.drag-handle');
+    if (!handle) return;
+    const card = handle.closest('.card[data-name][data-slot]');
     if (!card) return;
     const name = card.dataset.name;
     const slot = Number(card.dataset.slot);
