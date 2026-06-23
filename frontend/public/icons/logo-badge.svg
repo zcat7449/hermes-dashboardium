@@ -1,0 +1,57 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1">
+<html xmlns="http://www.w3.org/2000/svg" width="800" height="600">
+<head><title>Dashboardium Logo - README Badge</title></head><style>.bg{fill:#1a1a2e}.logo-main{filter:drop-shadow(0 0 4px rgba(78,204,163,0.5))}.dot-logo{fill:#4ecca3;opacity:0.95}.line-badge{stroke:#4ecca3;stroke-width:3;opacity:0.7;fill:none}.bg-card{fill:#252540}.text-badge{font-family:system-ui,-apple-system,sans-serif;font-weight:bold;font-size:16px;text-anchor:middle}</style>
+<body stroke="none">
+
+<rect width="800" height="600" class="bg"/>
+
+<!-- Left side - Icon -->
+<g id="logo-icon" transform="translate(200, 150)">
+  
+  <!-- Outer glow background (elliptical shield shape for logo) -->
+  <ellipse cx="238" cy="276" rx="242" ry="250" class="bg-card"/>
+  
+  <!-- Inner layered glows -->
+  <ellipse cx="238" cy="276" rx="218" ry="225" class="logo-main bg-card" style="fill: #2a5f4d"/>
+  <ellipse cx="238" cy="276" rx="190" ry="195" style="opacity: 0.9; fill-opacity: 0.85; stroke-width: 0;" class=".glow-main"/>
+
+  <!-- Agent constellation (logo mark) -->
+  <svg width="476" height="502">
+    <defs>
+      <radialGradient id="agentGlowBadge" cx="30%">
+        <stop offset="0%" stop-color="#4ecca3" stop-opacity="1"/>
+        <stop offset="90%" stop-color:#2a5a4c" stop-opacity="0.6"/>
+      </radialGradient>
+    </defs>
+
+    <!-- Agent network for logo -->
+    <circle cx="208" cy="156" r="35" class="dot-logo"/><!-- agent 1 (top-left) -->
+    <circle cx="290" cy="145" fill="#4ecca3" stroke-width="0" class=".glow-main logo-main bg-card" rx="58"/><!-- PRIMARY AGENT ORCHESTRATOR - center-top, largest, glowing leader -->
+    <circle cx="375" cy="160" r="36" opacity="0.9"/>
+
+    
+    <!-- Secondary agents -->
+    <circle cx="215" cy="248" r="30" opacity="0.8"/>
+    <circle cx="366" cy="252" opacity="0.7"/><!-- right-side analytical node -->
+    
+    <!-- Central coordinator (logo core) -->
+    <circle cx="291" cy="248" r="22" fill="#4ecca3"/>
+
+  </svg>
+
+</g>G
+
+<!-- Right side - Text Badge (name + version info) -->
+<g id="text-badging">
+<rect x="605" y="195" width="180" height="185" rx="24" class="bg-card" opacity="0.9"/>
+
+<!-- Ornamental tech arcs (status indicators) -->
+<path d="M645 185 L700 185 M735 180 L780 175" stroke="#4ecca3" class="line-badge" opacity="0.9"/>
+<path d="M630 210 L680 210" stroke="#4ecca3" opacity="0.5"/><!-- progress track -->
+
+<!-- Version/status dot indicator -->
+<circle cx="730" cy="180" r="8" fill="#4ecca3" class="logo-main"/>  
+</g>
+/
+</body>
+/html

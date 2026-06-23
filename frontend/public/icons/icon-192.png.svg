@@ -1,0 +1,52 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1">
+<html xmlns="http://www.w3.org/2000/svg" width="192" height="192">
+<head><title>Dashboardium Icon</title><meta name="generator" content="Hermes Agent"/></head>
+<style>
+  .bg { fill: #1a1a2e; }
+  .glow-primary { filter: drop-shadow(0 0 8px rgba(78, 204, 163, 0.5)); }
+  .dot-lg { fill: #4ecca3; opacity: 1; }
+  .line-strong { stroke: #4ecca3; stroke-width: 2; opacity: 0.85; fill: none; stroke-linecap: round; }
+  .bg-card { fill: #252540; }
+</style>
+<body>
+  <!-- Apple Touch Icon 192x192 - PWA icon for Dashboardium -->
+  
+  <circle class="bg" cx="96" cy="96" r="92"/>
+  
+  <!-- Outer glow ring mint green -->
+  <circle class="glow-primary bg-card" cx="96" cy="96" r="84"/>
+  
+  <!-- Main agent network (5 glowing nodes) -->
+  <g>
+    <circle class="dot-lg" cx="72" cy="60" r="14.5"/><!-- agent 1 -->
+    <circle class="dot-lg glow-primary" cx="96" cy="48" r="16"/><!-- top center - PRIMARY AGENT (active) -->
+    <circle class="dot-lg" cx="120" cy="60" r="14.5"/><!-- agent 2 -->
+    <circle class="dot-lg" cx="73" cy="96" r="14"/><!-- bottom left -->
+    <circle class="dot-lg" cx="119" cy="96" r="13"/><!-- bottom right -->
+  </g>
+  
+  <!-- Connection lines representing active agent network/monitoring/management -->
+  <g class="line-strong">
+    <path d="M96 48 L96 85 M72 60 L96 79 M120 60 L96 79"/>
+    <path d="M73 96 L95.5 85 M119 96 L96.5 85" opacity="0.85"/>
+    <path d="M80 42 L112 47 M78 100 L114 97" opacity="0.5"/>
+  </g>
+  
+  <!-- Activity pulsing rings (live monitoring indicator) -->
+  <circle class="glow-primary bg-card" cx="96" cy="96" r="48" style="opacity: 0.12; stroke-width: 2px; fill: none"/>
+  <circle class="glow-primary bg-card" cx="96" cy="96" r="36" style="opacity: 0.09; stroke-width: 1.5; fill: none"/>
+  
+  <!-- Dashboard grid hint (subtle) -->
+  <g opacity="0.08">
+    <line x1="64" y1="72" x2="128" y2="72" class="line-strong" style="stroke-width: 1.5"/>
+    <line x1="72" y1="56" x2="96" y2="80" class="line-strong" style="opacity: 0.3"/>
+    <line x1="116" y1="56" x2="140" y2="80" class="line-strong" style="opacity: 0.3"/>
+  </g>
+  
+  <!-- Status indicators (work in progress) -->
+  <rect x="90" y="179" width="8.5" height="6" fill="#4ecca3" opacity="0.85"/>
+  <rect x="80" y="175" width="28.5" height="5.5" fill="#4ecca3" opacity="0.7"/>
+  <path d="M96 179 L96 165 M108 179 L93 168 M183 179 L169 166" class="line-strong" style="stroke-width: 2; opacity: 0.6"/>
+  
+</body>
+</html>

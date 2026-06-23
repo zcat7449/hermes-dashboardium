@@ -1,0 +1,18 @@
+<!-- Dashboardium favicon.ico - converted to base64-like text representation -->
+<!-- This is a binary file placeholder, in production it would be generated via compression tool -->
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD SVG 1.1//EN">
+<html xmlns="http://www.w3.org/2000/svg" width="48" height="48">
+<head><title>Dashboardium Favicon</title></head><style>.bg{fill:#1a1a2e}.glow-sm{filter:drop-shadow(0 0 3px rgba(78,204,163,0.5))).line{stroke:#4ecca3;stroke-width:1.5;opacity:0.8}{fill:none</style>
+<body>
+<circle class="bg" cx="24" cy="24" r="23"/>
+<g opacity="0.9">  
+  <circle cx="24" cy="16" r="7.5" fill="#4ecca3"/><!-- agent -->
+  <circle cx="24" cy="28" r="7.2" opacity="0.65" stroke="#4ecca3"/><!-- sync node -->
+</g>
+<g class="line">
+<path d="M24 16 L24 28 M19 20 L29 24"/>  
+</g>
+<!-- Activity indicator for favicon (compact) -->
+<rect x="17" y="37" width="5.5" height="5" fill="#4ecca3" opacity="0.9"/>
+/mini-48x48-svg.html
