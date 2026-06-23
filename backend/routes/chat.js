@@ -68,14 +68,22 @@ function mountChatRoutes(app) {
         new_session: isNewSession,
       });
       invalidateProfilesResponseCache();
-      // Push response to Telegram if configured
-      try {
-        const { spawnSync } = require('child_process');
-        const tgTarget = process.env.TELEGRAM_TARGET || 'telegram';
-        const msg = `*${profile}*: ${responseText.substring(0, 200)}`;
-        spawnSync('hermes', ['send', '-t', tgTarget], { input: msg, timeout: 5000, stdio: ['pipe', 'ignore', 'ignore'] });
-      } catch (tgErr) {
-        // Telegram push is best-effort
+      // Push response to Telegram if configured (async, non-blocking)
+      const tgTarget = process.env.TELEGRAM_TARGET;
+      if (tgTarget) {
+        const { spawn } = require('child_process');
+        const msg = `${profile}: ${responseText.substring(0, 200)}`;
+        try {
+          const tg = spawn('hermes', ['send', '-t', tgTarget], {
+            stdio: ['pipe', 'ignore', 'ignore'],
+            timeout: 5000,
+          });
+          tg.stdin.write(msg);
+          tg.stdin.end();
+          tg.on('error', () => {}); // best-effort
+        } catch {
+          // Telegram push is best-effort
+        }
       }
     } catch (err) {
       console.error('chat error', err);

@@ -65,24 +65,10 @@
     return false;
   }
 
-  // Check stored auth first
+  // Check stored auth first — trust it, no async verification
   const stored = sessionStorage.getItem('dashboardium_auth');
   if (stored) {
     Config.AUTH = stored;
-    // Verify it still works
-    fetch(API_BASE + '/api/profiles', {
-      headers: { 'Authorization': 'Basic ' + stored },
-    }).then(r => {
-      if (!r.ok) {
-        sessionStorage.removeItem('dashboardium_auth');
-        Config.AUTH = null;
-        showLogin();
-      }
-    }).catch(() => {
-      sessionStorage.removeItem('dashboardium_auth');
-      Config.AUTH = null;
-      showLogin();
-    });
   } else {
     showLogin();
   }
@@ -97,7 +83,7 @@
     loginBtn.disabled = false;
     loginBtn.textContent = 'Войти';
     if (ok) {
-      // Boot the dashboard after successful login
+      // Boot directly — no reload (sessionStorage race)
       const A = window.Dashboard.API;
       const Drag = window.Dashboard.DragDrop;
       const R = window.Dashboard.Render;
@@ -110,6 +96,8 @@
         A.wsConnect();
       } catch (e) {
         console.warn('boot after login error', e);
+        // Fallback: reload
+        location.reload();
       }
     }
   });

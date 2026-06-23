@@ -102,7 +102,7 @@
 
     document.body.appendChild(overlay);
 
-    overlay.addEventListener('click', (e) => {
+    overlay.addEventListener('click', async (e) => {
       if (e.target === overlay) {
         closeTaskModal();
         return;
@@ -113,15 +113,16 @@
       if (action === 'tm-close') {
         closeTaskModal();
       } else if (action === 'tm-block') {
-        const reason = window.prompt(t('block_reason'), 'Blocked from Dashboardium');
+        const reason = await window.Dashboard.Modal.prompt(t('block_reason'), 'Blocked from Dashboardium');
         if (reason === null) return;
         doBlockTask(reason.trim() || 'Blocked from Dashboardium');
       } else if (action === 'tm-unblock') {
-        const reason = window.prompt(t('unblock_reason'), 'Unblocked from Dashboardium');
+        const reason = await window.Dashboard.Modal.prompt(t('unblock_reason'), 'Unblocked from Dashboardium');
         if (reason === null) return;
         doUnblockTask(reason.trim() || 'Unblocked from Dashboardium');
       } else if (action === 'tm-archive') {
-        if (!window.confirm(t('archive_confirm') + ' ' + currentTask.taskId + '?')) return;
+        const confirmed = await window.Dashboard.Modal.confirm(t('archive_confirm') + ' ' + currentTask.taskId + '?');
+        if (!confirmed) return;
         doArchiveTask();
       }
     });
@@ -165,7 +166,7 @@
       await A.blockTask(currentTask.board, currentTask.taskId, reason);
       closeTaskModal();
     } catch (e) {
-      alert(t('block_error') + ': ' + e.message);
+      window.Dashboard.Modal.confirm(t('block_error') + ': ' + e.message);
     }
   }
 
@@ -175,7 +176,7 @@
       await A.unblockTask(currentTask.board, currentTask.taskId, reason);
       closeTaskModal();
     } catch (e) {
-      alert(t('unblock_error') + ': ' + e.message);
+      window.Dashboard.Modal.confirm(t('unblock_error') + ': ' + e.message);
     }
   }
 
@@ -185,7 +186,7 @@
       await A.archiveTask(currentTask.board, currentTask.taskId);
       closeTaskModal();
     } catch (e) {
-      alert(t('archive_error') + ': ' + e.message);
+      window.Dashboard.Modal.confirm(t('archive_error') + ': ' + e.message);
     }
   }
 

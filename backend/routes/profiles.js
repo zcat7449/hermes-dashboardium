@@ -2,6 +2,7 @@ const { isPgAvailable, getPgInitError } = require('../db');
 const { listProfiles } = require('../services/profiles');
 const { scanBoardsForProfileTasks } = require('../services/sqlite');
 const { getCachedSessions, getCachedUsage, invalidateProfilesResponseCache, profileCache, taskCache, profilesResponseCache } = require('../services/cache');
+const { getHermesStatus } = require('../services/hermes-cli');
 const { MODEL_CONTEXT_LIMITS, DEFAULT_CONTEXT_LIMIT } = require('../config');
 
 function getModelContextLimit(modelStr) {
@@ -58,10 +59,11 @@ async function buildProfilesResponse(selectedProfile) {
     if (!selectedProfile || profile.name === selectedProfile) {
       try {
         const sessions = await getCachedSessions(profile.name);
-        if (sessions.length > 0) {
-          const s = sessions[0];
-          activeSession = { id: s.id, title: s.title, started_at: null };
-          const full = await getCachedUsage(profile.name, s.id);
+        // Only show the most recent active session
+        const activeS = sessions.find(s => s.source !== 'cli') || sessions[0];
+        if (activeS) {
+          activeSession = { id: activeS.id, title: activeS.title, started_at: null };
+          const full = await getCachedUsage(profile.name, activeS.id);
           if (full) {
             usage = {
               input_tokens: parseInt(full.input_tokens) || 0,

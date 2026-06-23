@@ -187,10 +187,213 @@
       status_label: 'Status',
       no_data: '—',
     },
+    de: {
+      lang_name: 'Deutsch',
+      dashboardium: 'Dashboardium',
+      leaders: 'LEADER',
+      all_profiles: 'ALLE PROFILE',
+      search_placeholder: 'Profile suchen / filtern…',
+      add_leader: 'Leader hinzufügen',
+      remove_leader: 'Leader entfernen',
+      collapse_chat: 'Chat einklappen/ausklappen',
+      drag_handle: 'Zum Sortieren ziehen',
+      no_active_task: '— keine aktive Aufgabe —',
+      profile_no_data: '— keine Daten —',
+      profile_unreachable: 'Profil nicht erreichbar',
+      optimize: 'Kontext optimieren',
+      optimizing: '⏳ …',
+      sessions: 'Sitzungen',
+      new_session: '+ Neue Sitzung',
+      chat: 'Chat',
+      new_session_label: 'neue Sitzung',
+      message_placeholder: 'Nachricht…',
+      message_placeholder_new: 'Nachricht… (neue Sitzung)',
+      send: 'Senden',
+      dialog_empty: 'Dialog ist leer',
+      session_from: 'Sitzung vom',
+      rename: 'umbenennen',
+      delete: 'löschen',
+      login_title: 'Dashboardium',
+      login_prompt: 'Login und Passwort eingeben',
+      login: 'Login',
+      password: 'Passwort',
+      login_btn: 'Anmelden',
+      login_error: 'Falscher Login oder Passwort',
+      checking: 'Prüfen…',
+      assign: 'Zuweisen',
+      no_profiles_filter: 'nichts gefunden',
+      no_profiles_outside: 'keine Profile außerhalb der Leader',
+      all_assigned: 'alle Profile bereits zugewiesen',
+      select_profiles: 'Profile auswählen',
+      close: 'Schließen',
+      search_profile: 'Profil suchen…',
+      task_view: 'Aufgabe anzeigen',
+      block: '⛔ Block',
+      unblock: '✅ Entblock',
+      archive: '📦 Archiv',
+      block_reason: 'Blockgrund:',
+      unblock_reason: 'Entblockgrund:',
+      archive_confirm: 'Aufgabe archivieren',
+      task_events: 'Ereignisse',
+      task_runs: 'Läufe',
+      task_comments: 'Kommentare',
+      no_events: 'keine Ereignisse',
+      no_runs: 'keine Läufe',
+      no_comments: 'keine Kommentare',
+      task_load_error: 'Fehler beim Laden der Aufgabe',
+      block_error: 'Blockfehler',
+      unblock_error: 'Entblockfehler',
+      archive_error: 'Archivfehler',
+      chat_error: '⚠ Chatfehler',
+      optimize_done: '✓ Kontext optimiert',
+      optimize_error: '⚠ Optimierungsfehler',
+      new_session_created: '✦ neue Sitzung erstellt',
+      new_session_next: '✦ neue Sitzung — nächste Nachricht startet sie',
+      new_session_local: '✦ neue Sitzung erstellt (lokal)',
+      rename_session: 'Neuer Sitzungsname:',
+      delete_session_confirm: 'Sitzung löschen?',
+      status_running: 'Aufgabe läuft',
+      status_blocked: 'Blockiert',
+      status_idle: 'Leerlauf',
+      status_error: 'Fehler',
+      filter_meta: 'Filter',
+      conn_live: 'live',
+      conn_error: 'Fehler',
+      assign_btn: 'Zuweisen',
+      session_label: 'Sitzung vom',
+      msg_you: '›',
+      msg_bot: '‹',
+      task_id_label: 'ID',
+      task_title_label: 'Titel',
+      timer_label: 'Zeit',
+      model_label: 'Modell',
+      usage_label: 'Nutzung',
+      priority_label: 'Priorität',
+      assignee_label: 'Bearbeiter',
+      created_label: 'Erstellt',
+      started_label: 'Gestartet',
+      completed_label: 'Abgeschlossen',
+      board_label: 'Board',
+      status_label: 'Status',
+      no_data: '—',
+    },
+    zh: {
+      lang_name: '中文',
+      dashboardium: 'Dashboardium',
+      leaders: '负责人',
+      all_profiles: '所有配置文件',
+      search_placeholder: '搜索/筛选配置文件…',
+      add_leader: '添加负责人',
+      remove_leader: '移除负责人',
+      collapse_chat: '折叠/展开聊天',
+      drag_handle: '拖拽排序',
+      no_active_task: '— 无活跃任务 —',
+      profile_no_data: '— 无数据 —',
+      profile_unreachable: '配置文件不可达',
+      optimize: '优化上下文',
+      optimizing: '⏳ …',
+      sessions: '会话',
+      new_session: '+ 新会话',
+      chat: '聊天',
+      new_session_label: '新会话',
+      message_placeholder: '消息…',
+      message_placeholder_new: '消息… (新会话)',
+      send: '发送',
+      dialog_empty: '对话为空',
+      session_from: '会话来自',
+      rename: '重命名',
+      delete: '删除',
+      login_title: 'Dashboardium',
+      login_prompt: '输入登录名和密码',
+      login: '登录名',
+      password: '密码',
+      login_btn: '登录',
+      login_error: '登录名或密码错误',
+      checking: '验证中…',
+      assign: '分配',
+      no_profiles_filter: '未找到匹配项',
+      no_profiles_outside: '负责人外无配置文件',
+      all_assigned: '所有配置文件已分配',
+      select_profiles: '选择配置文件',
+      close: '关闭',
+      search_profile: '搜索配置文件…',
+      task_view: '查看任务',
+      block: '⛔ 阻塞',
+      unblock: '✅ 解除',
+      archive: '📦 归档',
+      block_reason: '阻塞原因:',
+      unblock_reason: '解除原因:',
+      archive_confirm: '归档任务',
+      task_events: '事件',
+      task_runs: '运行',
+      task_comments: '评论',
+      no_events: '无事件',
+      no_runs: '无运行',
+      no_comments: '无评论',
+      task_load_error: '加载任务失败',
+      block_error: '阻塞错误',
+      unblock_error: '解除错误',
+      archive_error: '归档错误',
+      chat_error: '⚠ 聊天错误',
+      optimize_done: '✓ 上下文已优化',
+      optimize_error: '⚠ 优化错误',
+      new_session_created: '✦ 新会话已创建',
+      new_session_next: '✦ 新会话 — 下条消息将开始它',
+      new_session_local: '✦ 新会话已创建 (本地)',
+      rename_session: '新会话名称:',
+      delete_session_confirm: '删除会话?',
+      status_running: '运行任务中',
+      status_blocked: '已阻塞',
+      status_idle: '空闲',
+      status_error: '错误',
+      filter_meta: '筛选',
+      conn_live: '在线',
+      conn_error: '错误',
+      assign_btn: '分配',
+      session_label: '会话来自',
+      msg_you: '›',
+      msg_bot: '‹',
+      task_id_label: 'ID',
+      task_title_label: '标题',
+      timer_label: '时间',
+      model_label: '模型',
+      usage_label: '使用量',
+      priority_label: '优先级',
+      assignee_label: '负责人',
+      created_label: '创建于',
+      started_label: '开始于',
+      completed_label: '完成于',
+      board_label: '看板',
+      status_label: '状态',
+      no_data: '—',
+    },
   };
 
   let currentLang = localStorage.getItem(LANG_KEY) || DEFAULT_LANG;
   if (!translations[currentLang]) currentLang = DEFAULT_LANG;
+
+  // Apply i18n to static HTML elements on load
+  function applyStaticI18n() {
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      const key = el.getAttribute('data-i18n');
+      el.textContent = t(key);
+    });
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+      const key = el.getAttribute('data-i18n-placeholder');
+      el.placeholder = t(key);
+    });
+    document.querySelectorAll('[data-i18n-title]').forEach(el => {
+      const key = el.getAttribute('data-i18n-title');
+      el.title = t(key);
+    });
+  }
+
+  // Apply on DOM ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', applyStaticI18n);
+  } else {
+    applyStaticI18n();
+  }
 
   function t(key) {
     const lang = translations[currentLang];
@@ -204,6 +407,19 @@
     if (!translations[lang]) return;
     currentLang = lang;
     localStorage.setItem(LANG_KEY, lang);
+    // Update static HTML elements with data-i18n attributes
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      const key = el.getAttribute('data-i18n');
+      el.firstChild.nodeValue = t(key) + ' ';
+    });
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+      const key = el.getAttribute('data-i18n-placeholder');
+      el.placeholder = t(key);
+    });
+    document.querySelectorAll('[data-i18n-title]').forEach(el => {
+      const key = el.getAttribute('data-i18n-title');
+      el.title = t(key);
+    });
     // Re-render everything
     if (window.Dashboard && window.Dashboard.Render) {
       window.Dashboard.Render.renderAll();

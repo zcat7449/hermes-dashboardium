@@ -8,7 +8,7 @@
 <link rel="icon" type="image/svg+xml" sizes="16x16" href="/public/icons/favicon-16x16.svg">
 <link rel="icon" type="image/svg+xml" sizes="32x32" href="/public/icons/favicon-32x32.svg">
 <link rel="apple-touch-icon" href="/public/icons/apple-touch-icon.svg">
-<link rel="icon" type="image/svg+xml" sizes="192x192" href="/public/icons/icon-192.png.svg">
+<link rel="icon" type="image/svg+xml" sizes="192x192" href="/public/icons/icon-192.svg">
 <link rel="icon" type="image/svg+xml" sizes="512x512" href="/public/icons/icon-512.svg">
 <script>
 // Global error/rejection logger for diagnostics
@@ -797,7 +797,7 @@ main {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 10000;
   animation: modalFadeIn 0.2s ease;
 }
 @keyframes modalFadeIn {
@@ -972,9 +972,11 @@ main {
 <header>
   <h1><span class="dot"></span>Dashboardium</h1>
   <div style="display:flex;align-items:center;gap:8px;">
-    <select id="langSwitcher" style="background:rgba(0,0,0,0.2);border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:6px;font-size:12px;cursor:pointer;outline:none;">
+    <select id="langSwitcher" style="background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:4px 8px;font-size:13px;cursor:pointer;outline:none;">
       <option value="ru">Русский</option>
       <option value="en">English</option>
+      <option value="de">Deutsch</option>
+      <option value="zh">中文</option>
     </select>
     <div class="conn" id="conn">
       <span class="pulse"></span>
@@ -986,9 +988,9 @@ main {
 <main>
 
   <div class="section">
-    <h2>Лидеры <span class="count" id="leadersCount">0/4</span>
+    <h2><span data-i18n="leaders">Лидеры</span> <span class="count" id="leadersCount">0/4</span>
       <span class="add-leader-wrapper">
-        <button id="addLeaderBtn" class="add-leader-btn" title="Добавить лидера">+</button>
+        <button id="addLeaderBtn" class="add-leader-btn" data-i18n-title="add_leader" title="Добавить лидера">+</button>
         <div id="addLeaderDropdown" class="add-leader-dropdown"></div>
       </span>
     </h2>
@@ -996,9 +998,9 @@ main {
   </div>
 
   <div class="section">
-    <h2>Все профили <span class="count" id="allCount">0</span></h2>
+    <h2><span data-i18n="all_profiles">Все профили</span> <span class="count" id="allCount">0</span></h2>
     <div class="filter-bar">
-      <input type="text" id="filterInput" placeholder="Поиск / фильтр профилей…" autocomplete="off">
+      <input type="text" id="filterInput" data-i18n-placeholder="search_placeholder" placeholder="Поиск / фильтр профилей…" autocomplete="off">
       <span class="meta" id="filterMeta"></span>
     </div>
     <div class="bottom-grid" id="bottomGrid"></div>

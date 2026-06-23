@@ -124,7 +124,7 @@ async function exportHermesSession(profile, sessionId) {
 async function deleteHermesSession(profile, sessionId) {
   if (!SESSION_ID_RE.test(sessionId)) return false;
   try {
-    await runHermesSessions(profile, ['delete', sessionId], 10000);
+    await runHermesSessions(profile, ['delete', '--yes', sessionId], 10000);
     return true;
   } catch (err) {
     console.error('hermes sessions delete failed', profile, sessionId, err.message);
@@ -173,8 +173,8 @@ async function hermesChat(profile, message, options = {}) {
   const { sessionId, timeoutMs = CHAT_TIMEOUT_MS } = options;
   const safeMessage = String(message || '').replace(/^--/g, '').replace(/^-(?=[a-zA-Z])/g, '');
   const baseArgs = sessionId
-    ? ['chat', '--resume', sessionId, '-q', safeMessage, '-Q']
-    : ['chat', '-q', safeMessage, '-Q'];
+    ? ['chat', '--resume', sessionId, '-q', safeMessage]
+    : ['chat', '-q', safeMessage];
   const args = validateHermesArgs(baseArgs, ['-q', '-Q', '--resume']);
   await execFileAsync(HERMES_BIN, ['profile', 'use', profile], {
     timeout: PROFILE_SWITCH_TIMEOUT_MS,
@@ -209,7 +209,27 @@ function parseHermesChatOutput(stdout) {
   return { session_id: sessionId, response: responseText };
 }
 
-// ---- Hermes kanban CLI ----
+// ---- Hermes status (real context size) ----
+
+async function getHermesStatus(profile) {
+  try {
+    const { stdout } = await execFileAsync(HERMES_BIN, ['--profile', profile, 'status'], {
+      timeout: 10000,
+      env: { ...process.env, FORCE_COLOR: '0', NO_COLOR: '1' },
+    });
+    // Parse "Context: 151,089 / 1,048,576 (14%)"
+    const match = stdout.match(/Context:\s*([\d,]+)\s*\/\s*([\d,]+)\s*\((\d+)%\)/);
+    if (match) {
+      const used = parseInt(match[1].replace(/,/g, ''), 10);
+      const limit = parseInt(match[2].replace(/,/g, ''), 10);
+      const pct = parseInt(match[3], 10);
+      return { used, limit, pct };
+    }
+  } catch (e) {
+    // Silently fail
+  }
+  return null;
+}
 
 async function hermesKanbanBlock(taskId, reason) {
   await execFileAsync(HERMES_BIN, ['kanban', 'block', taskId, reason], { timeout: 10000 });
@@ -238,6 +258,7 @@ module.exports = {
   validateHermesArgs,
   hermesChat,
   parseHermesChatOutput,
+  getHermesStatus,
   hermesKanbanBlock,
   hermesKanbanUnblock,
   hermesKanbanReassign,
