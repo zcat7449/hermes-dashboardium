@@ -13,7 +13,7 @@ const AUTH_ENABLED = !!(AUTH_USER && AUTH_PASS);
 // Public paths that bypass auth (health-check for monitoring, etc.)
 // NOTE: middleware mounted at '/api', so req.path is '/health' not '/api/health'
 // WebSocket path — browser WS API cannot send custom headers
-const ALLOWLIST = new Set(['/health', '/ws']);
+const ALLOWLIST = new Set(['/health']);
 
 function basicAuthMiddleware(req, res, next) {
   if (!AUTH_ENABLED) return next();

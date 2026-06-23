@@ -141,20 +141,45 @@ All configuration is done via environment variables. Copy `.env.example` to `.en
 dashboardium/
 ├── backend/
 │   ├── server.js          # Express entry point
+│   ├── config.js          # Configuration (env vars, paths, limits)
+│   ├── db.js              # PostgreSQL pool and migrations
+│   ├── models.json        # Model context limits for usage %
 │   ├── routes/            # REST API route handlers
-│   ├── websocket/         # WebSocket event handlers
-│   ├── middleware/         # Auth and other middleware
-│   ├── services/          # Business logic (profiles, kanban, etc.)
+│   │   ├── profiles.js    # Profile list, health, usage
+│   │   ├── sessions.js    # Session CRUD, profile rename/delete
+│   │   ├── chat.js        # Chat with profiles via Hermes CLI
+│   │   ├── tasks.js       # Kanban task details, block/unblock/reassign
+│   │   └── user-role.js   # Leader/subordinate role management
+│   ├── middleware/         # Auth, CORS, rate-limit, path-guard, audit
+│   ├── services/          # Business logic
+│   │   ├── hermes-cli.js  # Hermes CLI wrapper (sessions, chat, kanban)
+│   │   ├── cache.js       # Session/usage/profile caching
+│   │   ├── profiles.js    # Profile listing and model detection
+│   │   ├── sqlite.js      # Kanban board SQLite reader
+│   │   ├── pg-import.js   # Import sessions from SQLite to PostgreSQL
+│   │   └── websocket.js   # WebSocket server (real-time updates)
 │   └── package.json       # Backend dependencies
 ├── frontend/
-│   ├── public/            # Static assets (CSS, JS, locales)
-│   │   ├── css/           # Stylesheets
-│   │   ├── js/            # Frontend JavaScript
-│   │   └── locales/       # i18n translation files (ru.json, en.json)
-│   └── views/             # EJS templates
+│   ├── public/            # Static assets
+│   │   ├── dashboard.js   # Main frontend logic (HTML+CSS+JS)
+│   │   └── icons/         # SVG icons (favicon, PWA)
+│   └── views/             # Frontend modules
+│       ├── index.html     # Entry point
+│       ├── api.js         # API client
+│       ├── render.js      # Profile card rendering
+│       ├── actions.js     # User actions (chat, optimize)
+│       ├── modal.js       # Modal dialogs
+│       ├── task-modal.js  # Task detail modal
+│       ├── drag-drop.js   # Drag-and-drop for leader cards
+│       ├── i18n.js        # Internationalization (RU/EN)
+│       ├── state.js       # Application state
+│       ├── config.js      # Frontend configuration
+│       └── utils.js       # Utility functions
+├── .githooks/pre-commit   # Checks that new features have tests
+├── .gitlab-ci.yml         # GitLab CI pipeline
 ├── .env.example           # Environment variable template
-├── package.json           # Root package.json (start / test scripts)
 ├── setup.js               # gbrain auto-configuration
+├── package.json           # Root package.json (start / test scripts)
 └── README.md              # This file
 ```
 

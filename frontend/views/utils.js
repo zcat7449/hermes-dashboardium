@@ -99,7 +99,7 @@
     const used = totalTokens >= 1000000 ? (totalTokens / 1000000).toFixed(1) + 'M' : totalTokens >= 1000 ? (totalTokens / 1000).toFixed(1) + 'K' : String(totalTokens);
     const total = limit >= 1000000 ? (limit / 1000000).toFixed(0) + 'm' : limit >= 1000 ? (limit / 1000).toFixed(0) + 'k' : String(limit);
     const barLen = 10;
-    const filled = Math.round(pct / 100 * barLen);
+    const filled = Math.min(barLen, Math.round(pct / 100 * barLen));
     const bar = '█'.repeat(filled) + '░'.repeat(barLen - filled);
     return `${used}/${total} │ ${bar} ${pct}%`;
   }

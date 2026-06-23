@@ -75,12 +75,12 @@
     const tasks = p.tasks || [];
     const activeTaskId = p.task_id;
     const queueHtml = tasks.length > 1
-      ? `<div class="task-queue">${tasks.map(t => `
-        <div class="task-queue-item${t.id === activeTaskId ? ' active' : ''}" title="[${U.esc(t.board || '?')}] ${U.esc(t.title || '')}">
-          <span class="tq-board">${U.esc((t.board || '?').substring(0, 10))}</span>
-          <span class="tq-id">${U.esc(t.id)}</span>
-          <button type="button" class="task-view-btn tq-view" data-action="task-view" data-board="${U.esc(t.board || '')}" data-task="${U.esc(t.id)}" title="${t('task_view')}">🔍</button>
-          <span class="tq-status ${U.esc(t.status)}"></span>
+      ? `<div class="task-queue">${tasks.map(task => `
+        <div class="task-queue-item${task.id === activeTaskId ? ' active' : ''}" title="[${U.esc(task.board || '?')}] ${U.esc(task.title || '')}">
+          <span class="tq-board">${U.esc((task.board || '?').substring(0, 10))}</span>
+          <span class="tq-id">${U.esc(task.id)}</span>
+          <button type="button" class="task-view-btn tq-view" data-action="task-view" data-board="${U.esc(task.board || '')}" data-task="${U.esc(task.id)}" title="${t('task_view')}">🔍</button>
+          <span class="tq-status ${U.esc(task.status)}"></span>
         </div>`).join('')}</div>`
       : '';
     const usageStr = U.fmtUsageStr(p);
@@ -222,9 +222,25 @@
       if (empty) empty.remove();
       const div = document.createElement('div');
       div.className = 'msg-' + role;
-      div.textContent = (role === 'you' ? t('msg_you') + ' ' : t('msg_bot') + ' ') + text;
+      div.textContent = (role === 'you' ? t('msg_you') + ' ' : role === 'typing' ? '' : t('msg_bot') + ' ') + text;
       logEl.appendChild(div);
       logEl.scrollTop = logEl.scrollHeight;
+    }
+  }
+
+  function removeLastChat(name, role) {
+    const log = D.chatLog[name];
+    if (!log) return;
+    for (let i = log.length - 1; i >= 0; i--) {
+      if (log[i].role === role) {
+        log.splice(i, 1);
+        break;
+      }
+    }
+    const logEl = D.els.topGrid.querySelector(`[data-chat-log="${CSS.escape(name)}"]`);
+    if (logEl) {
+      const msgs = logEl.querySelectorAll('.msg-' + role);
+      if (msgs.length > 0) msgs[msgs.length - 1].remove();
     }
   }
 
