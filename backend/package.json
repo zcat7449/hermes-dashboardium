@@ -5,8 +5,9 @@
   "main": "index.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node test-sessions.js && node test-http-sessions.js",
-    "coverage": "c8 --reporter=text --reporter=lcov node test-sessions.js && c8 --reporter=text --reporter=lcov node test-http-sessions.js",
+    "test": "node test-sessions.js && node test-http-sessions.js && node test-auth.js && node test-ws.js && node test-input-validation.js",
+    "test:ci": "node test-auth.js && node test-input-validation.js",
+    "test:full": "node test-sessions.js && node test-http-sessions.js && node test-auth.js && node test-ws.js && node test-input-validation.js",
     "coverage-ci": "c8 --reporter=lcov --check-coverage --branches=50 --functions=50 --lines=50 --statements=50 node test-sessions.js && c8 --reporter=lcov --check-coverage --branches=50 --functions=50 --lines=50 --statements=50 node test-http-sessions.js"
   },
   "keywords": [],
