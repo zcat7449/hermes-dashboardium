@@ -1,0 +1,35 @@
+image: node:20
+
+stages:
+  - install
+  - test
+  - coverage
+
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - backend/node_modules/
+
+install:
+  stage: install
+  script:
+    - cd backend && npm ci
+  artifacts:
+    paths:
+      - backend/node_modules/
+    expire_in: 1h
+
+test:
+  stage: test
+  script:
+    - cd backend && npm test
+  needs:
+    - install
+
+coverage:
+  stage: coverage
+  script:
+    - cd backend && npm run coverage-ci
+  needs:
+    - install
+  allow_failure: true
