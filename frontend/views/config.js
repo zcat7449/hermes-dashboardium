@@ -93,9 +93,25 @@
     if (!u || !p) return;
     loginBtn.disabled = true;
     loginBtn.textContent = 'Проверка…';
-    await tryLogin(u, p);
+    const ok = await tryLogin(u, p);
     loginBtn.disabled = false;
     loginBtn.textContent = 'Войти';
+    if (ok) {
+      // Boot the dashboard after successful login
+      const A = window.Dashboard.API;
+      const Drag = window.Dashboard.DragDrop;
+      const R = window.Dashboard.Render;
+      try {
+        await A.loadUserRole();
+        Drag.attachListeners();
+        const map = await A.loadProfiles();
+        window.Dashboard.Data.profilesByName = map;
+        R.renderAll();
+        A.wsConnect();
+      } catch (e) {
+        console.warn('boot after login error', e);
+      }
+    }
   });
 
   loginPass.addEventListener('keydown', (e) => {

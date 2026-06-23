@@ -68,6 +68,9 @@ cd backend && npm install && cd ..
 cp .env.example .env
 # Edit .env with your settings (see Configuration below)
 
+# Enable pre-commit hooks (checks that new features have tests)
+git config core.hooksPath .githooks
+
 # Auto-configure gbrain for all Hermes profiles (recommended)
 node setup.js
 
