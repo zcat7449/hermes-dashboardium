@@ -1,39 +1,7 @@
 stages:
-  - install
   - test
-  - coverage
-
-cache:
-  key: ${CI_COMMIT_REF_SLUG}
-  paths:
-    - backend/node_modules/
-
-.tags: &tags
-  tags:
-    - shell
-    - 7300333
-
-install:
-  <<: *tags
-  stage: install
-  script:
-    - cd backend && npm ci
-  artifacts:
-    paths:
-      - backend/node_modules/
-    expire_in: 1h
 
 test:
-  <<: *tags
   stage: test
   script:
-    - cd backend && npm test
-  needs: ["install"]
-
-coverage:
-  <<: *tags
-  stage: coverage
-  script:
-    - cd backend && npm run coverage-ci
-  needs: ["install"]
-  allow_failure: true
+    - cd backend && npm ci && npm test
