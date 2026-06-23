@@ -6,7 +6,7 @@ stages:
 test:
   stage: test
   script:
-    - cd backend && npm ci && npm test
+    - cd backend && npm ci && npm run test:ci
   only:
     - develop
     - master
