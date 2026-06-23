@@ -30,14 +30,12 @@ test:
   stage: test
   script:
     - cd backend && npm test
-  needs:
-    - install
+  needs: ["install"]
 
 coverage:
   <<: *tags
   stage: coverage
   script:
     - cd backend && npm run coverage-ci
-  needs:
-    - install
+  needs: ["install"]
   allow_failure: true
