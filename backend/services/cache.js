@@ -1,7 +1,7 @@
 const { listHermesSessionsImpl, exportHermesSession } = require('./hermes-cli');
 
 // ---- Sessions cache: prevent process pile-up on 5s polling ----
-const SESSION_CACHE_TTL_MS = 10000; // 10 seconds
+const SESSION_CACHE_TTL_MS = 30000; // 30 seconds (matches WS poll interval)
 const sessionsCache = new Map(); // key = profile, value = { promise, expiresAt }
 
 // ---- Usage cache: prevent Hermes CLI overload from 14 parallel export calls ----

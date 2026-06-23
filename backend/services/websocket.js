@@ -10,7 +10,7 @@ const auditLog = require('../middleware/audit');
 const { isPgAvailable, insertSessionMessage } = require('../db');
 const { invalidateProfilesResponseCache } = require('./cache');
 
-const WS_POLL_MS = 5000; // server-side polling interval (same as old client-side)
+const WS_POLL_MS = 30000; // server-side polling interval (30s instead of 5s to reduce load)
 
 let wss = null;
 let pollTimer = null;
