@@ -57,6 +57,8 @@
     if (!text) return;
     input.value = '';
     R.appendChat(name, 'you', text);
+    // Show typing indicator
+    R.appendChat(name, 'typing', '…');
     const sid = D.activeSessionMap[name];
     // Try WebSocket first
     if (A.wsSend({ type: 'chat', profile: name, message: text, session_id: sid || undefined })) {
@@ -66,6 +68,8 @@
     // Fallback to REST
     try {
       const r = await A.postChat(name, text, sid);
+      // Remove typing indicator
+      R.removeLastChat(name, 'typing');
       const reply = (r && (r.reply || r.message || r.response)) || JSON.stringify(r);
       R.appendChat(name, 'bot', String(reply));
       const newSid = r && r.session_id;
@@ -145,7 +149,7 @@
   }
 
   // ---- Delegated click handler ----
-  document.addEventListener('click', (e) => {
+  document.addEventListener('click', async (e) => {
     const t = e.target.dataset.action ? e.target : e.target.closest('[data-action]');
     if (!t) return;
     const action = t.dataset.action;
@@ -176,14 +180,15 @@
       const list = D.sessionsMap[name] || [];
       const s = list.find(x => x.id === sid);
       const current = s ? (s.title || '') : '';
-      const next = window.prompt('Новое название сессии:', current);
+      const next = await window.Dashboard.Modal.prompt('Новое название сессии:', current);
       if (next === null) return;
       doRenameSession(name, sid, next.trim());
     } else if (action === 'sess-delete') {
       e.stopPropagation();
       const name = t.dataset.name;
       const sid = t.dataset.sid;
-      if (!window.confirm('Удалить сессию?')) return;
+      const confirmed = await window.Dashboard.Modal.confirm('Удалить сессию?');
+      if (!confirmed) return;
       doDeleteSession(name, sid);
     } else if (action === 'sess-new') {
       e.stopPropagation();
@@ -271,6 +276,8 @@
   });
 
   // Polling / WebSocket
+  // Polling / WebSocket
+  let firstTick = true;
   // tick() is kept for manual refresh (R key) and as REST fallback
   async function tick() {
     // If WebSocket is connected, server pushes updates — no need to poll.
@@ -279,14 +286,14 @@
       const map = await A.loadProfiles();
       const oldNames = Object.keys(D.profilesByName).sort().join(',');
       const newNames = Object.keys(map).sort().join(',');
-
       const oldLeaders = D.leaders.join(',');
       D.profilesByName = map;
       const known = new Set(Object.keys(map));
       D.leaders = D.leaders.map(n => (n && known.has(n)) ? n : null);
       const newLeaders = D.leaders.join(',');
 
-      if (oldNames !== newNames || oldLeaders !== newLeaders) {
+      if (firstTick || oldNames !== newNames || oldLeaders !== newLeaders) {
+        firstTick = false;
         const curLeaders = D.leaders.filter(Boolean);
         if (curLeaders.length > 0) {
           await Promise.all(curLeaders.map(n => A.loadSessionsFor(n)));
@@ -327,15 +334,15 @@
     }
   });
 
-  // Boot
-  A.loadUserRole().then(() => {
-    Drag.attachListeners();
-    // Do initial REST poll to populate data immediately
-    tick().then(() => {
-      // Then connect WebSocket for real-time updates
-      A.wsConnect();
+  // Boot — only if auth is configured
+  if (C.AUTH) {
+    A.loadUserRole().catch(() => {}).then(() => {
+      Drag.attachListeners();
+      tick().then(() => {
+        A.wsConnect();
+      });
     });
-  });
+  }
 
   // Expose helpers used by other modules
   window.Dashboard.Actions = {

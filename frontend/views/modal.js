@@ -130,5 +130,81 @@
     showProfileModal,
     closeProfileModal,
     renderProfileModal,
+    confirm: function(msg) {
+      // Don't stack multiple overlays
+      if (document.querySelector('.profile-modal-overlay')) return Promise.resolve(false);
+      return new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.className = 'profile-modal-overlay';
+        overlay.innerHTML = `<div class="profile-modal" style="max-width:400px;text-align:center;">
+          <div class="profile-modal-header">
+            <h3>${U.esc(msg)}</h3>
+          </div>
+          <div style="padding:16px;display:flex;gap:12px;justify-content:center;">
+            <button class="profile-modal-close-btn" data-action="confirm-yes" style="background:var(--green);color:var(--bg);font-weight:600;">Да</button>
+            <button class="profile-modal-close-btn" data-action="confirm-no">Нет</button>
+          </div>
+        </div>`;
+        document.body.appendChild(overlay);
+        overlay.addEventListener('click', (e) => {
+          const t = e.target.dataset.action ? e.target : e.target.closest('[data-action]');
+          if (!t) return;
+          if (t.dataset.action === 'confirm-yes') {
+            overlay.remove();
+            resolve(true);
+          } else if (t.dataset.action === 'confirm-no') {
+            overlay.remove();
+            resolve(false);
+          }
+        });
+      });
+    },
+    prompt: function(msg, defaultValue) {
+      // Don't stack multiple overlays
+      if (document.querySelector('.profile-modal-overlay')) return Promise.resolve(null);
+      return new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.className = 'profile-modal-overlay';
+        overlay.innerHTML = `<div class="profile-modal" style="max-width:400px;">
+          <div class="profile-modal-header">
+            <h3>${U.esc(msg)}</h3>
+          </div>
+          <div style="padding:16px;">
+            <input type="text" id="pmPromptInput" value="${U.esc(defaultValue || '')}" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:14px;box-sizing:border-box;margin-bottom:12px;">
+            <div style="display:flex;gap:12px;justify-content:flex-end;">
+              <button class="profile-modal-close-btn" data-action="prompt-ok" style="background:var(--green);color:var(--bg);font-weight:600;">OK</button>
+              <button class="profile-modal-close-btn" data-action="prompt-cancel">Отмена</button>
+            </div>
+          </div>
+        </div>`;
+        document.body.appendChild(overlay);
+        const input = document.getElementById('pmPromptInput');
+        if (input) {
+          input.focus();
+          input.select();
+          input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+              overlay.remove();
+              resolve(input.value);
+            }
+            if (e.key === 'Escape') {
+              overlay.remove();
+              resolve(null);
+            }
+          });
+        }
+        overlay.addEventListener('click', (e) => {
+          const t = e.target.dataset.action ? e.target : e.target.closest('[data-action]');
+          if (!t) return;
+          if (t.dataset.action === 'prompt-ok') {
+            overlay.remove();
+            resolve(input ? input.value : '');
+          } else if (t.dataset.action === 'prompt-cancel') {
+            overlay.remove();
+            resolve(null);
+          }
+        });
+      });
+    },
   };
 })();

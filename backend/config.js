@@ -15,7 +15,7 @@ const SQLITE_BUSY_RETRIES = parseInt(process.env.SQLITE_BUSY_RETRIES || '2', 10)
 const SQLITE_TIMEOUT_MS = parseInt(process.env.SQLITE_TIMEOUT_MS || '5000', 10);
 const GLOBAL_RATE_LIMIT_RPS = parseInt(process.env.GLOBAL_RATE_LIMIT_RPS || '30', 10);
 const GLOBAL_RATE_LIMIT_WINDOW_MS = parseInt(process.env.GLOBAL_RATE_LIMIT_WINDOW_MS || '1000', 10);
-const CHAT_TIMEOUT_MS = parseInt(process.env.CHAT_TIMEOUT_MS || '30000', 10);
+const CHAT_TIMEOUT_MS = parseInt(process.env.CHAT_TIMEOUT_MS || '120000', 10);
 const PROFILE_SWITCH_TIMEOUT_MS = parseInt(process.env.PROFILE_SWITCH_TIMEOUT_MS || '5000', 10);
 const PG_IMPORT_FROM_SQLITE = process.env.PG_IMPORT_FROM_SQLITE !== '0';
 const USER_ROLE_PATH = path.join(REAL_HOME, '.hermes', 'user_role.json');

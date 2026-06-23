@@ -6,4 +6,8 @@ stages:
 test:
   stage: test
   script:
-    - cd backend && npm ci && npm run test:ci
+    - cd backend && npm ci && npm test
+  only:
+    - develop
+    - master
+    - merge_requests

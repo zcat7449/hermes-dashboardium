@@ -321,8 +321,6 @@
     ws.onclose = (event) => {
       console.log('ws: disconnected', event.code, event.reason);
       ws = null;
-      // Fallback to REST polling while reconnecting
-      startRestPolling();
       wsScheduleReconnect();
     };
 

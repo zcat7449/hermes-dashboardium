@@ -1,19 +1,22 @@
 #!/bin/sh
 # Dashboardium pre-commit hook
-# Проверяет: если в коммите новый файл в backend/routes/ или frontend/views/ —
+# Проверяет: если в коммите новый или изменённый файл в backend/routes/ или frontend/views/ —
 # должен быть соответствующий тест в backend/test-*.js
 # Если теста нет — коммит отклоняется.
 
-CHANGED_FILES=$(git diff --cached --name-only --diff-filter=A)
+CHANGED_FILES=$(git diff --cached --name-only)
 HAS_ERROR=0
 
 for file in $CHANGED_FILES; do
+  # Skip deletions
+  if ! git cat-file -e ":0:$file" 2>/dev/null; then continue; fi
+
   # Backend routes — проверяем тест
   if echo "$file" | grep -q "^backend/routes/"; then
     basename=$(echo "$file" | sed 's/^backend\/routes\///' | sed 's/\.js$//')
     test_file="backend/test-${basename}.js"
     if [ ! -f "$test_file" ]; then
-      echo "❌ Нет теста для новой фичи: $file"
+      echo "❌ Нет теста для: $file"
       echo "   Создай $test_file перед коммитом"
       HAS_ERROR=1
     fi
@@ -24,7 +27,7 @@ for file in $CHANGED_FILES; do
     basename=$(echo "$file" | sed 's/^frontend\/views\///' | sed 's/\.js$//')
     test_file="backend/test-frontend-${basename}.js"
     if [ ! -f "$test_file" ] && [ ! -f "backend/test-${basename}.js" ]; then
-      echo "⚠️  Нет теста для нового фронта: $file"
+      echo "⚠️  Нет теста для фронта: $file"
       echo "   Создай backend/test-frontend-${basename}.js или backend/test-${basename}.js"
       HAS_ERROR=1
     fi

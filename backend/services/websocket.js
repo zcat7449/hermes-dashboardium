@@ -1,5 +1,5 @@
 // WebSocket server for real-time profile updates, chat, and optimize.
-// Replaces client-side polling (5s) with server-side push.
+// Lightweight delta polling — checks only message_count, no full profile rebuild.
 const WebSocket = require('ws');
 const { buildProfilesResponse } = require('../routes/profiles');
 const { hermesChat, parseHermesChatOutput, sanitizeChatMessage } = require('./hermes-cli');
@@ -10,19 +10,67 @@ const auditLog = require('../middleware/audit');
 const { isPgAvailable, insertSessionMessage } = require('../db');
 const { invalidateProfilesResponseCache } = require('./cache');
 
-const WS_POLL_MS = 30000; // server-side polling interval (30s instead of 5s to reduce load)
+const WS_DELTA_POLL_MS = 10000; // 10s — only checks message_count, lightweight
+let LEADER_PROFILES = []; // populated from user_role.json at init
 
 let wss = null;
-let pollTimer = null;
+let deltaPollTimer = null;
 let pollSeq = 0;
 
 // Track last known message_count per profile per session for delta push
 const lastSessionCounts = {}; // { profile: { sessionId: message_count } }
 
+/**
+ * Read leader profiles from user_role.json (profiles with role 'leader').
+ * Falls back to empty array if file missing — no delta polling.
+ */
+function loadLeaderProfiles() {
+  try {
+    const fs = require('fs');
+    const { USER_ROLE_PATH } = require('../config');
+    if (!fs.existsSync(USER_ROLE_PATH)) return [];
+    const raw = fs.readFileSync(USER_ROLE_PATH, 'utf8');
+    const parsed = JSON.parse(raw);
+    const entries = Array.isArray(parsed.entries) ? parsed.entries : [];
+    return entries.filter(e => e.role === 'leader').map(e => e.profile);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Authenticate WebSocket connection.
+ * If AUTH is enabled, check ?token= query parameter against Base64(user:pass).
+ * Browser WS API cannot send custom headers, so token in query string is the standard approach.
+ */
+function authenticateWs(req) {
+  const { AUTH_USERNAME, AUTH_PASSWORD } = require('../config');
+  if (!AUTH_USERNAME || !AUTH_PASSWORD) return true; // auth disabled
+  const url = new URL(req.url, 'http://localhost');
+  const token = url.searchParams.get('token');
+  if (!token) return false;
+  try {
+    const decoded = Buffer.from(token, 'base64').toString('utf-8');
+    const colon = decoded.indexOf(':');
+    if (colon === -1) return false;
+    const user = decoded.slice(0, colon);
+    const pass = decoded.slice(colon + 1);
+    return user === AUTH_USERNAME && pass === AUTH_PASSWORD;
+  } catch {
+    return false;
+  }
+}
+
 function initWebSocket(httpServer) {
   wss = new WebSocket.Server({ server: httpServer, path: '/ws' });
 
   wss.on('connection', (ws, req) => {
+    // Auth check
+    if (!authenticateWs(req)) {
+      ws.close(4001, 'unauthorized');
+      return;
+    }
+
     const ip = req.socket.remoteAddress || 'unknown';
     console.log(`ws: client connected from ${ip}`);
 
@@ -49,26 +97,20 @@ function initWebSocket(httpServer) {
     });
   });
 
-  // Start server-side polling — pushes profiles to all connected clients
-  startPolling();
+  // Load leader profiles and start delta polling
+  LEADER_PROFILES = loadLeaderProfiles();
+  startDeltaPolling();
 
-  console.log('WebSocket server initialized on /ws');
+  console.log(`WebSocket server initialized on /ws (delta polling ${WS_DELTA_POLL_MS}ms, ${LEADER_PROFILES.length} leaders)`);
 }
 
-function startPolling() {
-  if (pollTimer) clearInterval(pollTimer);
-  pollTimer = setInterval(async () => {
-    if (!wss || wss.clients.size === 0) return; // skip when no clients
+function startDeltaPolling() {
+  if (deltaPollTimer) clearInterval(deltaPollTimer);
+  deltaPollTimer = setInterval(async () => {
+    if (!wss || wss.clients.size === 0) return;
     try {
-      // Clear session cache so message_count is fresh for delta detection
-      const { sessionsCache } = require('./cache');
-      sessionsCache.clear();
-      const data = await buildProfilesResponse(null);
-      pollSeq++;
-
-      // Check for new messages in sessions (delta push)
-      for (const profile of data) {
-        const name = profile.name;
+      // Only check leader profiles for new messages (lightweight: sessions list only)
+      for (const name of LEADER_PROFILES) {
         try {
           const sessions = await getCachedSessions(name);
           for (const s of sessions) {
@@ -97,32 +139,23 @@ function startPolling() {
                 }
               }
             }
-            // Update tracked count
             if (!lastSessionCounts[name]) lastSessionCounts[name] = {};
             lastSessionCounts[name][sid] = count;
           }
         } catch (e) {
-          // Silently skip profiles with session errors
+          // Silently skip
         }
       }
-
-      const payload = JSON.stringify({
-        type: 'profiles',
-        seq: pollSeq,
-        profiles: data,
-        polled_at: Date.now(),
-      });
-      broadcast(payload);
     } catch (err) {
-      console.error('ws: poll error', err.message);
+      // Silently skip
     }
-  }, WS_POLL_MS);
+  }, WS_DELTA_POLL_MS);
 }
 
-function stopPolling() {
-  if (pollTimer) {
-    clearInterval(pollTimer);
-    pollTimer = null;
+function stopDeltaPolling() {
+  if (deltaPollTimer) {
+    clearInterval(deltaPollTimer);
+    deltaPollTimer = null;
   }
 }
 
@@ -257,7 +290,7 @@ function broadcast(payload) {
 }
 
 function closeWebSocket() {
-  stopPolling();
+  stopDeltaPolling();
   if (wss) {
     wss.close();
     wss = null;

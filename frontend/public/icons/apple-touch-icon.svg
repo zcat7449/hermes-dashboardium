@@ -1,52 +1,7 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1">
-<html xmlns="http://www.w3.org/2000/svg" width="180" height="180">
-<head>
-<title>Apple Touch Icon</title>
-<meta name="generator" content="Hermes Agent"/>
-</head><style>.bg{fill:#1a1a2e}.glow-main{filter:drop-shadow(0 0 6px rgba(78,204,163,0.5));animation:none}.dot-lg{fill:#4ecca3;opacity:1;shape-rendering:geometricPrecision}.line-strong{stroke:#4ecca3;stroke-width:1.8;opacity:0.85;fill:none;stroke-linecap:round}.bg-card{fill:#252540}</style>
-<body>
-<!-- Apple Touch Icon 180x180 for iOS devices -->
-
-<circle class="bg" cx="90" cy="90" r="86"/>
-
-<!-- Outer glow ring mint green (iOS touch target) -->
-<g>
-  <circle class="glow-main bg-card" cx="90" cy="90" r="75"/>  
-  <circle class="bg-card" cx="90" cy="90" r="68" style="fill-opacity: 1"/>  
-</g>
-
-<!-- Agent compact constellation (4 nodes for touch icon) -->
-<svg width="180" height="180">
-<defs>
-<radialGradient id="agentGlowTouch" cx="35%" cy="35%">
-<stop offset="0%" style="stop-color:#4ecca3;stop-opacity:1"/>
-<stop offset="95%" style="stop-color:#2a5a4c;stop-opacity:0.6"/>  
-</radialGradient>
-</defs>
-
-<!-- Monitoring nodes -->
-<circle cx="70" cy="85" r="11" class="dot-lg" opacity="0.7"/><!-- top-left monitor pod -->
-<circle cx="90" cy="72" r="36" fill="#4ecca3" stroke="#4ecca3" stroke-width="0" class="glow-main bg-card"/><!-- ORCHESTRATOR/LEADER (largest, active center top) -->
-<circle cx="110" cy="85" r="11.2" opacity="0.75"/><!-- top-right agent node -->
-
-<!-- Center coordinator agent -->
-<circle cx="90" cy="94" r="9.5" fill="#4ecca3" class="dot-lg glow-main"/>
-
+<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 180 180">
+  <rect width="180" height="180" rx="30" fill="#1a1a2e"/>
+  <rect x="20" y="35" width="140" height="22" rx="10" fill="#4ecca3" opacity="0.9"/>
+  <rect x="20" y="79" width="90" height="22" rx="10" fill="#4ecca3" opacity="0.6"/>
+  <rect x="20" y="123" width="110" height="22" rx="10" fill="#4ecca3" opacity="0.4"/>
+  <circle cx="135" cy="90" r="17" fill="#4ecca3"/>
 </svg>
-
-<!-- Communication arcs (real-time activity) -->
-<g stroke="#4ecca3" opacity="0.7">
-<path d="M70 85 L90 106 M90 72 L90 104"/>  
-<path d="M110 85 L90 104" opacity="0.75"/>
-</g>
-
-<!-- iOS safe-area hint (subtle rounded marker) -->
-<rect x="37" y="74" width="36" height="13" rx="20" class="bg-card" opacity="0.9" fill="#4ecca3" style="opacity: 0.3"/>
-
-<!-- Activity indicator dots (work in progress) -->
-<rect x="83" y="167" width="7" height="5" fill="#4ecca3" rx="3"/>  
-<path d="M72 170 L91 162 L109 170 Z" fill="#4ecca3" opacity="0.85"/><title>active sync</title>
-
-/m
-</body>
-/app-touch-icon.svg
