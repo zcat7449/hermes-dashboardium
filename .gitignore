@@ -2,10 +2,3 @@ node_modules/
 .env
 *.log
 *.bak
-**/*.bak
-*.bak.*
-test-*.js
-test-profiles/
-test-boards/
-test-*/
-.DS_Store
