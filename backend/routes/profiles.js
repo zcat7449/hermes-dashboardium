@@ -1,7 +1,7 @@
 const { isPgAvailable, getPgInitError } = require('../db');
 const { listProfiles } = require('../services/profiles');
 const { scanBoardsForProfileTasks } = require('../services/sqlite');
-const { getCachedSessions, getCachedUsage, invalidateProfilesResponseCache, profileCache, taskCache, profilesResponseCache } = require('../services/cache');
+const { getCachedSessions, getCachedUsage, getCachedStatus, invalidateProfilesResponseCache, profileCache, taskCache, profilesResponseCache } = require('../services/cache');
 const { getHermesStatus } = require('../services/hermes-cli');
 const { MODEL_CONTEXT_LIMITS, DEFAULT_CONTEXT_LIMIT } = require('../config');
 const { getRealNumCtx } = require('../services/ollama-context');
@@ -57,44 +57,61 @@ async function buildProfilesResponse(selectedProfile) {
 
     let usage = { input_tokens: 0, output_tokens: 0 };
     let activeSession = null;
-    if (!selectedProfile || profile.name === selectedProfile) {
-      try {
-        const sessions = await getCachedSessions(profile.name);
-        // Only show the most recent active session
-        const activeS = sessions.find(s => s.source !== 'cli') || sessions[0];
-        if (activeS) {
-          activeSession = { id: activeS.id, title: activeS.title, started_at: null };
-          const full = await getCachedUsage(profile.name, activeS.id);
-          if (full) {
-            usage = {
-              input_tokens: parseInt(full.input_tokens) || 0,
-              output_tokens: parseInt(full.output_tokens) || 0,
-            };
-            activeSession.started_at = parseFloat(full.started_at) || null;
-          }
-        }
-      } catch (usageErr) {
-        console.error('usage read error', profile.name, usageErr.message);
-      }
-    }
-
     let contextLimit;
     let contextLimitSource;
+    let usagePercent = 0;
+
+    // Try getHermesStatus first — gives real context usage from 'hermes status'
     try {
-      const apiLimit = await getRealNumCtx(profile.model, profile.provider);
-      if (apiLimit !== null) {
-        contextLimit = apiLimit;
-        contextLimitSource = 'api';
-      } else {
+      const status = await getCachedStatus(profile.name);
+      if (status && status.pct !== undefined) {
+        usagePercent = status.pct;
+        contextLimit = status.limit;
+        contextLimitSource = 'hermes_status';
+        usage = { input_tokens: status.used, output_tokens: 0 };
+      }
+    } catch (_) {
+      // fall through to fallback
+    }
+
+    if (contextLimitSource !== 'hermes_status') {
+      // Fallback: exportHermesSession + ollama-context
+      if (!selectedProfile || profile.name === selectedProfile) {
+        try {
+          const sessions = await getCachedSessions(profile.name);
+          const activeS = sessions.find(s => s.source !== 'cli') || sessions[0];
+          if (activeS) {
+            activeSession = { id: activeS.id, title: activeS.title, started_at: null };
+            const full = await getCachedUsage(profile.name, activeS.id);
+            if (full) {
+              usage = {
+                input_tokens: parseInt(full.input_tokens) || 0,
+                output_tokens: parseInt(full.output_tokens) || 0,
+              };
+              activeSession.started_at = parseFloat(full.started_at) || null;
+            }
+          }
+        } catch (usageErr) {
+          console.error('usage read error', profile.name, usageErr.message);
+        }
+      }
+
+      try {
+        const apiLimit = await getRealNumCtx(profile.model, profile.provider);
+        if (apiLimit !== null) {
+          contextLimit = apiLimit;
+          contextLimitSource = 'api';
+        } else {
+          contextLimit = getModelContextLimit(profile.model);
+          contextLimitSource = contextLimit === DEFAULT_CONTEXT_LIMIT ? 'default' : 'dict';
+        }
+      } catch (_) {
         contextLimit = getModelContextLimit(profile.model);
         contextLimitSource = contextLimit === DEFAULT_CONTEXT_LIMIT ? 'default' : 'dict';
       }
-    } catch (_) {
-      contextLimit = getModelContextLimit(profile.model);
-      contextLimitSource = contextLimit === DEFAULT_CONTEXT_LIMIT ? 'default' : 'dict';
+      const totalUsage = usage.input_tokens + usage.output_tokens;
+      usagePercent = contextLimit > 0 ? Math.min(1000, Math.round((totalUsage / contextLimit) * 100)) : 0;
     }
-    const totalUsage = usage.input_tokens + usage.output_tokens;
-    const usagePercent = contextLimit > 0 ? Math.min(1000, Math.round((totalUsage / contextLimit) * 100)) : 0;
 
     return {
       name: profile.name,

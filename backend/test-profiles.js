@@ -14,6 +14,7 @@ process.env.FRONTEND_DIR = require('path').join(__dirname, '..', 'frontend');
 const assert = require('assert');
 
 // Mock hermes-cli before anything else
+let mockHermesStatus = null; // controllable by tests
 const hermesCliPath = require.resolve('./services/hermes-cli.js');
 require.cache[hermesCliPath] = {
   id: hermesCliPath, filename: hermesCliPath, loaded: true,
@@ -32,6 +33,7 @@ require.cache[hermesCliPath] = {
     hermesKanbanArchive: async () => undefined,
     validateHermesArgs: (args) => args,
     runHermesSessions: async () => '',
+    getHermesStatus: async () => mockHermesStatus,
   },
 };
 
@@ -47,6 +49,7 @@ require.cache[sqlitePath] = {
 // Now require modules (ollama-context will be real, but we control it via setHttpClient)
 const { buildProfilesResponse } = require('./routes/profiles');
 const { clearCache, setHttpClient } = require('./services/ollama-context');
+const { clearStatusCache } = require('./services/cache');
 
 async function runTests() {
   console.log('--- buildProfilesResponse: context_limit_source=dict ---');
@@ -105,6 +108,51 @@ async function runTests() {
   const backend4 = profiles4.find(p => p.name === 'backend');
   assert('provider' in backend4, 'provider field exists');
   console.log('✓ provider field present in response');
+
+  console.log('\n--- usage_percent via getHermesStatus (hermes_status source) ---');
+
+  // Mock getHermesStatus to return real context data
+  clearCache();
+  clearStatusCache();
+  mockHermesStatus = { used: 136089, limit: 1048576, pct: 14 };
+  setHttpClient(async (url, body, headers) => {
+    if (body.name === 'deepseek-v4-flash') {
+      return { parameters: 'num_ctx 1000000' };
+    }
+    return { parameters: '' };
+  });
+
+  const profiles5 = await buildProfilesResponse(null);
+  const backend5 = profiles5.find(p => p.name === 'backend');
+  assert(backend5, 'backend profile found');
+  assert.strictEqual(backend5.usage_percent, 14, 'usage_percent=14 from hermes_status');
+  assert.strictEqual(backend5.context_limit, 1048576, 'context_limit from hermes_status');
+  assert.strictEqual(backend5.context_limit_source, 'hermes_status', 'source=hermes_status');
+  assert.strictEqual(backend5.usage_input, 136089, 'usage_input from hermes_status');
+  assert.strictEqual(backend5.usage_output, 0, 'usage_output=0 from hermes_status');
+  console.log('✓ usage_percent=14, context_limit=1048576, source=hermes_status');
+
+  console.log('\n--- getHermesStatus returns null -> fallback to dict ---');
+
+  // Mock getHermesStatus to return null (fallback)
+  clearCache();
+  clearStatusCache();
+  mockHermesStatus = null;
+  setHttpClient(async (url, body, headers) => {
+    if (body.name === 'deepseek-v4-flash') {
+      return { parameters: '' };
+    }
+    return { parameters: '' };
+  });
+
+  const profiles6 = await buildProfilesResponse(null);
+  const backend6 = profiles6.find(p => p.name === 'backend');
+  assert(backend6, 'backend profile found');
+  assert.strictEqual(backend6.context_limit, 1000000, 'fallback dict context_limit');
+  assert.strictEqual(backend6.context_limit_source, 'dict', 'fallback source=dict');
+  // usage from exportHermesSession mock: 500+200=700, context_limit=1000000 -> 0%
+  assert.strictEqual(backend6.usage_percent, 0, 'fallback usage_percent=0 (700/1000000)');
+  console.log('✓ fallback: context_limit=1000000, source=dict, usage_percent=0');
 
   console.log('\nProfiles route tests passed');
 }
