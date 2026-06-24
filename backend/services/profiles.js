@@ -39,7 +39,16 @@ function listProfiles(profileCache) {
   }
   const data = entries.map(name => {
     const configPath = path.join(PROFILES_DIR, name, 'config.yaml');
-    return { name, model: readModel(configPath) };
+    const model = readModel(configPath);
+    let provider = null;
+    try {
+      const raw = fs.readFileSync(configPath, 'utf8');
+      const cfg = yaml.load(raw) || {};
+      if (cfg.model && typeof cfg.model === 'object') {
+        provider = cfg.model.provider || null;
+      }
+    } catch (_) {}
+    return { name, model, provider };
   });
   profileCache.data = data;
   profileCache.ts = now;

@@ -4,6 +4,7 @@ const { scanBoardsForProfileTasks } = require('../services/sqlite');
 const { getCachedSessions, getCachedUsage, invalidateProfilesResponseCache, profileCache, taskCache, profilesResponseCache } = require('../services/cache');
 const { getHermesStatus } = require('../services/hermes-cli');
 const { MODEL_CONTEXT_LIMITS, DEFAULT_CONTEXT_LIMIT } = require('../config');
+const { getRealNumCtx } = require('../services/ollama-context');
 
 function getModelContextLimit(modelStr) {
   const parts = (modelStr || '').split(':');
@@ -77,13 +78,28 @@ async function buildProfilesResponse(selectedProfile) {
       }
     }
 
-    const contextLimit = getModelContextLimit(profile.model);
+    let contextLimit;
+    let contextLimitSource;
+    try {
+      const apiLimit = await getRealNumCtx(profile.model, profile.provider);
+      if (apiLimit !== null) {
+        contextLimit = apiLimit;
+        contextLimitSource = 'api';
+      } else {
+        contextLimit = getModelContextLimit(profile.model);
+        contextLimitSource = contextLimit === DEFAULT_CONTEXT_LIMIT ? 'default' : 'dict';
+      }
+    } catch (_) {
+      contextLimit = getModelContextLimit(profile.model);
+      contextLimitSource = contextLimit === DEFAULT_CONTEXT_LIMIT ? 'default' : 'dict';
+    }
     const totalUsage = usage.input_tokens + usage.output_tokens;
-    const usagePercent = contextLimit > 0 ? Math.min(99, Math.round((totalUsage / contextLimit) * 100)) : 0;
+    const usagePercent = contextLimit > 0 ? Math.min(1000, Math.round((totalUsage / contextLimit) * 100)) : 0;
 
     return {
       name: profile.name,
       model: profile.model,
+      provider: profile.provider,
       kanban_task: currentTask ? currentTask.id : null,
       kanban_title: currentTask ? currentTask.title : null,
       kanban_board: currentTask ? currentTask.board : null,
@@ -92,6 +108,7 @@ async function buildProfilesResponse(selectedProfile) {
       usage_output: usage.output_tokens,
       usage_percent: usagePercent,
       context_limit: contextLimit,
+      context_limit_source: contextLimitSource,
       status,
       started_at: startedAt,
       since_seconds: Math.floor(sinceSeconds),
