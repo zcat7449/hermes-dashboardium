@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node test-cache.js && node test-sessions.js && node test-http-sessions.js && node test-auth.js && node test-ws.js && node test-input-validation.js && node test-tasks.js && node test-user-role.js",
+    "test": "node test-cache.js && node test-sessions.js && node test-http-sessions.js && node test-auth.js && node test-rate-limit.js && node test-ws.js && node test-input-validation.js && node test-tasks.js && node test-user-role.js",
     "test:ci": "node test-cache.js && node test-auth.js && node test-input-validation.js && node test-tasks.js && node test-user-role.js",
     "test:full": "node test-cache.js && node test-sessions.js && node test-http-sessions.js && node test-auth.js && node test-ws.js && node test-input-validation.js && node test-tasks.js && node test-user-role.js",
     "coverage-ci": "c8 --reporter=lcov --check-coverage --branches=70 --functions=70 --lines=70 --statements=70 node test-cache.js && c8 --reporter=lcov --check-coverage --branches=70 --functions=70 --lines=70 --statements=70 node test-auth.js && c8 --reporter=lcov --check-coverage --branches=70 --functions=70 --lines=70 --statements=70 node test-input-validation.js"

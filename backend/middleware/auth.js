@@ -75,3 +75,4 @@ function basicAuthMiddleware(req, res, next) {
 }
 
 module.exports = basicAuthMiddleware;
+module.exports.authFailCounts = authFailCounts;

@@ -1,7 +1,43 @@
 const { GLOBAL_RATE_LIMIT_RPS, GLOBAL_RATE_LIMIT_WINDOW_MS } = require('../config');
+const { authFailCounts } = require('./auth');
 
 const globalIpLimits = new Map(); // ip -> { count, resetAt }
 const chatRateLimits = new Map(); // profile -> last allowed timestamp
+
+let sweeperTimer = null;
+
+/**
+ * Remove all expired buckets from all three in-memory Maps.
+ * A bucket is expired when its resetAt timestamp is in the past.
+ */
+function sweepExpiredBuckets() {
+  const now = Date.now();
+  for (const map of [globalIpLimits, chatRateLimits, authFailCounts]) {
+    for (const [key, bucket] of map) {
+      if (bucket.resetAt !== undefined && now >= bucket.resetAt) {
+        map.delete(key);
+      }
+    }
+  }
+}
+
+/**
+ * Start periodic eviction sweep. Returns { stop: () => void }.
+ * @param {number} intervalMs - sweep interval in ms (default 300000 = 5 min)
+ */
+function startRateLimitSweeper(intervalMs = 300000) {
+  if (sweeperTimer) return { stop: stopRateLimitSweeper };
+  sweeperTimer = setInterval(sweepExpiredBuckets, intervalMs);
+  sweeperTimer.unref();
+  return { stop: stopRateLimitSweeper };
+}
+
+function stopRateLimitSweeper() {
+  if (sweeperTimer) {
+    clearInterval(sweeperTimer);
+    sweeperTimer = null;
+  }
+}
 
 function checkGlobalIpRateLimit(ip) {
   const now = Date.now();
@@ -40,4 +76,7 @@ module.exports = {
   checkChatRateLimit,
   chatRateLimits,
   globalIpLimits,
+  sweepExpiredBuckets,
+  startRateLimitSweeper,
+  stopRateLimitSweeper,
 };

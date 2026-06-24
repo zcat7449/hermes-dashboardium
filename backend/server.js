@@ -11,7 +11,7 @@ const { initWebSocket, closeWebSocket } = require('./services/websocket');
 // Middleware
 const corsMiddleware = require('./middleware/cors');
 const basicAuthMiddleware = require('./middleware/auth');
-const { globalRateLimitMiddleware } = require('./middleware/rate-limit');
+const { globalRateLimitMiddleware, startRateLimitSweeper, stopRateLimitSweeper } = require('./middleware/rate-limit');
 const pathGuardMiddleware = require('./middleware/path-guard');
 
 // Routes
@@ -22,7 +22,7 @@ const { mountTasksRoutes } = require('./routes/tasks');
 const { mountUserRoleRoutes } = require('./routes/user-role');
 
 // Re-exports for tests
-const { checkGlobalIpRateLimit, checkChatRateLimit, chatRateLimits, globalIpLimits } = require('./middleware/rate-limit');
+const { checkGlobalIpRateLimit, checkChatRateLimit, chatRateLimits, globalIpLimits, sweepExpiredBuckets } = require('./middleware/rate-limit');
 const { getSqliteResultWithParams } = require('./services/sqlite');
 const {
   parseHermesSessionsList,
@@ -76,6 +76,7 @@ app.use((err, req, res, next) => {
 if (require.main === module) {
   (async () => {
     await initPostgres();
+    startRateLimitSweeper();
     const importResult = await importSessionsFromSqlite();
     if (importResult.imported > 0) {
       console.log(`imported ${importResult.imported} sessions from ${importResult.files.length} sqlite files`);
@@ -91,11 +92,13 @@ if (require.main === module) {
   })();
 
   process.on('SIGINT', () => {
+    stopRateLimitSweeper();
     closeWebSocket();
     closeDbs();
     process.exit(0);
   });
   process.on('SIGTERM', () => {
+    stopRateLimitSweeper();
     closeWebSocket();
     closeDbs();
     process.exit(0);
