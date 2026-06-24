@@ -14,7 +14,7 @@ process.env.FRONTEND_DIR = require('path').join(__dirname, '..', 'frontend');
 const assert = require('assert');
 
 // Mock hermes-cli before anything else
-let mockHermesStatus = null; // controllable by tests
+let mockContextLog = null; // controllable by tests
 const hermesCliPath = require.resolve('./services/hermes-cli.js');
 require.cache[hermesCliPath] = {
   id: hermesCliPath, filename: hermesCliPath, loaded: true,
@@ -33,7 +33,7 @@ require.cache[hermesCliPath] = {
     hermesKanbanArchive: async () => undefined,
     validateHermesArgs: (args) => args,
     runHermesSessions: async () => '',
-    getHermesStatus: async () => mockHermesStatus,
+    getProfileContextFromLog: async () => mockContextLog,
   },
 };
 
@@ -49,13 +49,15 @@ require.cache[sqlitePath] = {
 // Now require modules (ollama-context will be real, but we control it via setHttpClient)
 const { buildProfilesResponse } = require('./routes/profiles');
 const { clearCache, setHttpClient } = require('./services/ollama-context');
-const { clearStatusCache } = require('./services/cache');
+const { clearContextLogCache } = require('./services/cache');
 
 async function runTests() {
   console.log('--- buildProfilesResponse: context_limit_source=dict ---');
 
   // getRealNumCtx returns null (no HTTP mock) -> fallback to dict
   clearCache();
+  clearContextLogCache();
+  mockContextLog = null;
 
   const profiles1 = await buildProfilesResponse(null);
   const backend1 = profiles1.find(p => p.name === 'backend');
@@ -70,6 +72,8 @@ async function runTests() {
 
   // Mock HTTP to return num_ctx for deepseek-v4-flash
   clearCache();
+  clearContextLogCache();
+  mockContextLog = null;
   setHttpClient(async (url, body, headers) => {
     if (body.name === 'deepseek-v4-flash') {
       return { parameters: 'num_ctx 65536' };
@@ -88,6 +92,8 @@ async function runTests() {
 
   // With context_limit=1000 and usage=700, percent should be 70 (not 99)
   clearCache();
+  clearContextLogCache();
+  mockContextLog = null;
   setHttpClient(async (url, body, headers) => {
     if (body.name === 'deepseek-v4-flash') {
       return { parameters: 'num_ctx 1000' };
@@ -109,12 +115,12 @@ async function runTests() {
   assert('provider' in backend4, 'provider field exists');
   console.log('✓ provider field present in response');
 
-  console.log('\n--- usage_percent via getHermesStatus (hermes_status source) ---');
+  console.log('\n--- usage_percent via getProfileContextFromLog (log source) ---');
 
-  // Mock getHermesStatus to return real context data
+  // Mock getProfileContextFromLog to return real context data from agent.log
   clearCache();
-  clearStatusCache();
-  mockHermesStatus = { used: 136089, limit: 1048576, pct: 14 };
+  clearContextLogCache();
+  mockContextLog = { model: 'glm-5.2', context_used: 167135, output_tokens: 182, total_tokens: 167317 };
   setHttpClient(async (url, body, headers) => {
     if (body.name === 'deepseek-v4-flash') {
       return { parameters: 'num_ctx 1000000' };
@@ -125,19 +131,21 @@ async function runTests() {
   const profiles5 = await buildProfilesResponse(null);
   const backend5 = profiles5.find(p => p.name === 'backend');
   assert(backend5, 'backend profile found');
-  assert.strictEqual(backend5.usage_percent, 14, 'usage_percent=14 from hermes_status');
-  assert.strictEqual(backend5.context_limit, 1048576, 'context_limit from hermes_status');
-  assert.strictEqual(backend5.context_limit_source, 'hermes_status', 'source=hermes_status');
-  assert.strictEqual(backend5.usage_input, 136089, 'usage_input from hermes_status');
-  assert.strictEqual(backend5.usage_output, 0, 'usage_output=0 from hermes_status');
-  console.log('✓ usage_percent=14, context_limit=1048576, source=hermes_status');
+  // glm-5.2 is NOT in models.json dict, so getModelContextLimit returns DEFAULT=131072
+  // usage_percent = round(167135 / 131072 * 100) = round(127.5) = 128
+  assert.strictEqual(backend5.usage_percent, 128, 'usage_percent=128 from agent.log (167135/131072)');
+  assert.strictEqual(backend5.context_limit, 131072, 'context_limit from dict for glm-5.2 (default)');
+  assert.strictEqual(backend5.context_limit_source, 'log', 'source=log');
+  assert.strictEqual(backend5.usage_input, 167135, 'usage_input from agent.log');
+  assert.strictEqual(backend5.usage_output, 182, 'usage_output from agent.log');
+  console.log('✓ usage_percent=128, context_limit=131072, source=log');
 
-  console.log('\n--- getHermesStatus returns null -> fallback to dict ---');
+  console.log('\n--- getProfileContextFromLog returns null -> fallback to dict ---');
 
-  // Mock getHermesStatus to return null (fallback)
+  // Mock getProfileContextFromLog to return null (fallback)
   clearCache();
-  clearStatusCache();
-  mockHermesStatus = null;
+  clearContextLogCache();
+  mockContextLog = null;
   setHttpClient(async (url, body, headers) => {
     if (body.name === 'deepseek-v4-flash') {
       return { parameters: '' };

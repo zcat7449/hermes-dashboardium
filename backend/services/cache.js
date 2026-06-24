@@ -1,4 +1,4 @@
-const { listHermesSessionsImpl, exportHermesSession, getHermesStatus } = require('./hermes-cli');
+const { listHermesSessionsImpl, exportHermesSession, getProfileContextFromLog } = require('./hermes-cli');
 
 // ---- Sessions cache: prevent process pile-up on 5s polling ----
 const SESSION_CACHE_TTL_MS = 30000; // 30 seconds (matches WS poll interval)
@@ -8,18 +8,18 @@ const sessionsCache = new Map(); // key = profile, value = { promise, expiresAt 
 const USAGE_CACHE_TTL_MS = 60000; // 60 seconds
 const usageCache = new Map(); // key = `${profile}:${sessionId}`, value = { promise, expiresAt }
 
-// ---- Status cache: prevent process pile-up on 30s polling ----
-const STATUS_CACHE_TTL_MS = 30000; // 30 seconds (sync with WS poll interval)
-const statusCache = new Map(); // key = profile, value = { promise, expiresAt }
+// ---- Context log cache: parse agent.log for real context usage ----
+const CONTEXT_LOG_CACHE_TTL_MS = 30000; // 30 seconds (sync with WS poll interval)
+const contextLogCache = new Map(); // key = profile, value = { promise, expiresAt }
 
-function getCachedStatus(profile) {
+function getCachedContextLog(profile) {
   const now = Date.now();
-  const entry = statusCache.get(profile);
+  const entry = contextLogCache.get(profile);
   if (entry && entry.expiresAt > now) {
     return entry.promise;
   }
-  const promise = getHermesStatus(profile);
-  statusCache.set(profile, { promise, expiresAt: now + STATUS_CACHE_TTL_MS });
+  const promise = getProfileContextFromLog(profile);
+  contextLogCache.set(profile, { promise, expiresAt: now + CONTEXT_LOG_CACHE_TTL_MS });
   return promise;
 }
 
@@ -59,20 +59,20 @@ function invalidateProfilesResponseCache() {
   profilesResponseCache.data = null;
 }
 
-function clearStatusCache() {
-  statusCache.clear();
+function clearContextLogCache() {
+  contextLogCache.clear();
 }
 
 module.exports = {
   getCachedSessions,
   getCachedUsage,
-  getCachedStatus,
-  clearStatusCache,
+  getCachedContextLog,
+  clearContextLogCache,
   invalidateProfilesResponseCache,
   profileCache,
   taskCache,
   profilesResponseCache,
   sessionsCache,
   usageCache,
-  statusCache,
+  contextLogCache,
 };

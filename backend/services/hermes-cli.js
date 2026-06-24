@@ -209,24 +209,52 @@ function parseHermesChatOutput(stdout) {
   return { session_id: sessionId, response: responseText };
 }
 
-// ---- Hermes status (real context size) ----
+// ---- Hermes agent.log parser (real context size) ----
 
-async function getHermesStatus(profile) {
+const fs = require('fs');
+const path = require('path');
+const { PROFILES_DIR } = require('../config');
+
+/**
+ * Parse the last "API call #" line from agent.log to get real current context usage.
+ *
+ * agent.log line format:
+ *   agent.conversation_loop: API call #74: model=glm-5.2 provider=ollama-cloud in=167135 out=182 total=167317 latency=21.4s
+ *
+ * @param {string} profile  Profile name (e.g. "pdashboardium")
+ * @returns {Promise<{model: string, context_used: number, output_tokens: number, total_tokens: number}|null>}
+ */
+async function getProfileContextFromLog(profile) {
+  const logPath = path.join(PROFILES_DIR, profile, 'logs', 'agent.log');
   try {
-    const { stdout } = await execFileAsync(HERMES_BIN, ['--profile', profile, 'status'], {
-      timeout: 10000,
-      env: { ...process.env, FORCE_COLOR: '0', NO_COLOR: '1' },
-    });
-    // Parse "Context: 151,089 / 1,048,576 (14%)"
-    const match = stdout.match(/Context:\s*([\d,]+)\s*\/\s*([\d,]+)\s*\((\d+)%\)/);
-    if (match) {
-      const used = parseInt(match[1].replace(/,/g, ''), 10);
-      const limit = parseInt(match[2].replace(/,/g, ''), 10);
-      const pct = parseInt(match[3], 10);
-      return { used, limit, pct };
+    // Read last 50KB of the log file (fast tail)
+    const stat = await fs.promises.stat(logPath).catch(() => null);
+    if (!stat || stat.size === 0) return null;
+
+    const readSize = Math.min(stat.size, 51200); // 50KB tail
+    const fd = await fs.promises.open(logPath, 'r');
+    const buf = Buffer.alloc(readSize);
+    await fd.read(buf, 0, readSize, Math.max(0, stat.size - readSize));
+    await fd.close();
+
+    const text = buf.toString('utf8');
+    const lines = text.split(/\r?\n/);
+
+    // Search backwards for the last "API call #" line
+    const regex = /API call #\d+: model=(\S+) provider=\S+ in=(\d+) out=(\d+) total=(\d+)/;
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const match = lines[i].match(regex);
+      if (match) {
+        return {
+          model: match[1],
+          context_used: parseInt(match[2], 10),
+          output_tokens: parseInt(match[3], 10),
+          total_tokens: parseInt(match[4], 10),
+        };
+      }
     }
   } catch (e) {
-    // Silently fail
+    // File not found, permission error, etc. → null
   }
   return null;
 }
@@ -258,7 +286,7 @@ module.exports = {
   validateHermesArgs,
   hermesChat,
   parseHermesChatOutput,
-  getHermesStatus,
+  getProfileContextFromLog,
   hermesKanbanBlock,
   hermesKanbanUnblock,
   hermesKanbanReassign,

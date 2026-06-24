@@ -1,8 +1,7 @@
 const { isPgAvailable, getPgInitError } = require('../db');
 const { listProfiles } = require('../services/profiles');
 const { scanBoardsForProfileTasks } = require('../services/sqlite');
-const { getCachedSessions, getCachedUsage, getCachedStatus, invalidateProfilesResponseCache, profileCache, taskCache, profilesResponseCache } = require('../services/cache');
-const { getHermesStatus } = require('../services/hermes-cli');
+const { getCachedSessions, getCachedUsage, getCachedContextLog, invalidateProfilesResponseCache, profileCache, taskCache, profilesResponseCache } = require('../services/cache');
 const { MODEL_CONTEXT_LIMITS, DEFAULT_CONTEXT_LIMIT } = require('../config');
 const { getRealNumCtx } = require('../services/ollama-context');
 
@@ -61,20 +60,20 @@ async function buildProfilesResponse(selectedProfile) {
     let contextLimitSource;
     let usagePercent = 0;
 
-    // Try getHermesStatus first — gives real context usage from 'hermes status'
+    // Try getCachedContextLog first — parses agent.log for real current context
     try {
-      const status = await getCachedStatus(profile.name);
-      if (status && status.pct !== undefined) {
-        usagePercent = status.pct;
-        contextLimit = status.limit;
-        contextLimitSource = 'hermes_status';
-        usage = { input_tokens: status.used, output_tokens: 0 };
+      const ctx = await getCachedContextLog(profile.name);
+      if (ctx && ctx.context_used !== undefined) {
+        contextLimit = getModelContextLimit(ctx.model);
+        contextLimitSource = 'log';
+        usage = { input_tokens: ctx.context_used, output_tokens: ctx.output_tokens };
+        usagePercent = contextLimit > 0 ? Math.min(1000, Math.round((ctx.context_used / contextLimit) * 100)) : 0;
       }
     } catch (_) {
       // fall through to fallback
     }
 
-    if (contextLimitSource !== 'hermes_status') {
+    if (contextLimitSource !== 'log') {
       // Fallback: exportHermesSession + ollama-context
       if (!selectedProfile || profile.name === selectedProfile) {
         try {
