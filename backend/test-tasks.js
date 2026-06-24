@@ -10,7 +10,7 @@ process.env.AUTH_PASSWORD = '';
 process.env.GLOBAL_RATE_LIMIT_RPS = '10000';
 process.env.GLOBAL_RATE_LIMIT_WINDOW_MS = '60000';
 process.env.PROFILES_DIR = '/root/.hermes/profiles';
-process.env.KANBAN_BOARDS_DIR = '/root/.hermes/kanban/boards';
+process.env.KANBAN_BOARDS_DIR = require('path').join(__dirname, 'test-fixtures', 'kanban');
 process.env.HERMES_BIN = '/usr/local/bin/hermes';
 process.env.FRONTEND_DIR = require('path').join(__dirname, '..', 'frontend');
 
@@ -148,12 +148,11 @@ async function runTests(port) {
 
   console.log('\n--- Archive ---');
 
-  // Archive should not actually archive a real task in test — use nonexistent
-  const archRes = await request(port, 'POST', `/api/tasks/${testBoard || 'test'}/t_nonexistent_xyz_999/archive`);
-  // Mock returns undefined, so it will try to call hermesKanbanArchive which is mocked
-  // This may return 200 (mock succeeds) or 500 if hermes binary fails
-  assert(archRes.status === 200 || archRes.status === 500, `archive mock -> 200 or 500, got ${archRes.status}`);
-  console.log(`✓ archive endpoint responds (${archRes.status})`);
+  // Archive with fixture board — mock hermesKanbanArchive returns undefined (no error) -> 200
+  const archRes = await request(port, 'POST', `/api/tasks/${testBoard}/t_nonexistent_xyz_999/archive`);
+  assert.strictEqual(archRes.status, 200, `archive -> 200, got ${archRes.status}`);
+  assert.strictEqual(archRes.body.status, 'archived');
+  console.log(`✓ archive task -> 200`);
 
   console.log('\nTask tests passed');
 }
