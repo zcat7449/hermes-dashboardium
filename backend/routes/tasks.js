@@ -88,7 +88,7 @@ function mountTasksRoutes(app) {
       });
     } catch (err) {
       console.error('task details error', err);
-      res.status(500).json({ error: 'failed to load task details', detail: String(err.message || err) });
+      res.status(500).json({ error: 'failed to load task details' });
     }
   });
 
@@ -106,7 +106,7 @@ function mountTasksRoutes(app) {
       res.json({ board, task_id: taskId, status: 'blocked', reason });
     } catch (err) {
       console.error('block task error', err);
-      res.status(500).json({ error: 'failed to block task', detail: String(err.message || err) });
+      res.status(500).json({ error: 'failed to block task' });
     }
   });
 
@@ -124,7 +124,7 @@ function mountTasksRoutes(app) {
       res.json({ board, task_id: taskId, status: 'unblocked', reason });
     } catch (err) {
       console.error('unblock task error', err);
-      res.status(500).json({ error: 'failed to unblock task', detail: String(err.message || err) });
+      res.status(500).json({ error: 'failed to unblock task' });
     }
   });
 
@@ -150,7 +150,7 @@ function mountTasksRoutes(app) {
       res.json({ board, task_id: taskId, assignee, status: 'reassigned' });
     } catch (err) {
       console.error('reassign task error', err);
-      res.status(500).json({ error: 'failed to reassign task', detail: String(err.message || err) });
+      res.status(500).json({ error: 'failed to reassign task' });
     }
   });
 
@@ -167,7 +167,7 @@ function mountTasksRoutes(app) {
       res.json({ board, task_id: taskId, status: 'archived' });
     } catch (err) {
       console.error('archive task error', err);
-      res.status(500).json({ error: 'failed to archive task', detail: String(err.message || err) });
+      res.status(500).json({ error: 'failed to archive task' });
     }
   });
 }
