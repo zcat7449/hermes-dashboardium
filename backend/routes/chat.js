@@ -3,6 +3,7 @@ const { invalidateProfilesResponseCache } = require('../services/cache');
 const { hermesChat, parseHermesChatOutput, sanitizeChatMessage } = require('../services/hermes-cli');
 const { checkChatRateLimit } = require('../middleware/rate-limit');
 const auditLog = require('../middleware/audit');
+const { SESSION_ID_RE } = require('../config');
 
 function mountChatRoutes(app) {
   app.post('/api/chat/:profile', async (req, res) => {
@@ -15,6 +16,12 @@ function mountChatRoutes(app) {
     }
     if (!/^[a-zA-Z0-9_-]+$/.test(profile)) {
       res.status(400).json({ error: 'invalid profile name' });
+      return;
+    }
+    // Validate client-provided session_id against SESSION_ID_RE before use.
+    // sessionId may be null (new session), so only check when non-empty.
+    if (sessionId && !SESSION_ID_RE.test(sessionId)) {
+      res.status(400).json({ error: 'invalid session id' });
       return;
     }
     if (!checkChatRateLimit(profile)) {
@@ -70,7 +77,10 @@ function mountChatRoutes(app) {
       invalidateProfilesResponseCache();
       // Push response to Telegram if configured (async, non-blocking)
       const tgTarget = process.env.TELEGRAM_TARGET;
-      if (tgTarget) {
+      // Validate tgTarget format before spawn: must match platform:identifier[:thread]
+      // e.g. telegram:-1001234567890, telegram:-1001234567890:17585, discord:#chan, sms:+1551234567
+      const TG_TARGET_RE = /^[a-z]+:[-+#A-Za-z0-9]+(?::[A-Za-z0-9._-]+)?$/;
+      if (tgTarget && TG_TARGET_RE.test(tgTarget)) {
         const { spawn } = require('child_process');
         const msg = `${profile}: ${responseText.substring(0, 200)}`;
         try {
@@ -84,10 +94,12 @@ function mountChatRoutes(app) {
         } catch {
           // Telegram push is best-effort
         }
+      } else if (tgTarget) {
+        console.warn('TELEGRAM_TARGET has invalid format, skipping push:', tgTarget);
       }
     } catch (err) {
       console.error('chat error', err);
-      res.status(500).json({ error: 'chat failed', detail: String(err.message || err) });
+      res.status(500).json({ error: 'chat failed' });
     }
   });
 
@@ -113,7 +125,7 @@ function mountChatRoutes(app) {
       invalidateProfilesResponseCache();
     } catch (err) {
       console.error('optimize error', err);
-      res.status(500).json({ error: 'optimize failed', detail: String(err.message || err) });
+      res.status(500).json({ error: 'optimize failed' });
     }
   });
 }

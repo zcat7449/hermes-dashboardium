@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
-const { PROFILES_DIR, PROFILE_NAME_RE } = require('../config');
+const crypto = require('crypto');
+const { PROFILES_DIR, PROFILE_NAME_RE, SESSION_ID_RE } = require('../config');
 const { getProfileStateDb } = require('../services/profiles');
 const { getCachedSessions, invalidateProfilesResponseCache, profileCache, taskCache, sessionsCache } = require('../services/cache');
 const { getSqliteResultWithParams } = require('../services/sqlite');
@@ -15,7 +16,7 @@ function generateSessionId() {
   const h = String(now.getHours()).padStart(2, '0');
   const min = String(now.getMinutes()).padStart(2, '0');
   const s = String(now.getSeconds()).padStart(2, '0');
-  const rand = Math.random().toString(36).substring(2, 8);
+  const rand = crypto.randomBytes(4).toString('hex');
   return `${y}${m}${d}_${h}${min}${s}_${rand}`;
 }
 
@@ -65,7 +66,7 @@ function mountSessionsRoutes(app) {
       res.json({ ok: true, name: newName });
     } catch (err) {
       console.error('profile rename error', err);
-      res.status(500).json({ error: 'failed to rename profile', detail: String(err.message || err) });
+      res.status(500).json({ error: 'failed to rename profile' });
     }
   });
 
@@ -94,7 +95,7 @@ function mountSessionsRoutes(app) {
       res.json({ ok: true, deleted: true, name });
     } catch (err) {
       console.error('profile delete error', err);
-      res.status(500).json({ error: 'failed to delete profile', detail: String(err.message || err) });
+      res.status(500).json({ error: 'failed to delete profile' });
     }
   });
 
@@ -115,7 +116,7 @@ function mountSessionsRoutes(app) {
       res.json({ profile, sessions });
     } catch (err) {
       console.error('sessions list error', profile, err);
-      res.status(500).json({ error: 'failed to list sessions', detail: String(err.message || err) });
+      res.status(500).json({ error: 'failed to list sessions' });
     }
   });
 
@@ -143,7 +144,7 @@ function mountSessionsRoutes(app) {
       res.json({ profile, session_id: sessionId, messages });
     } catch (err) {
       console.error('messages error', err);
-      res.status(500).json({ error: 'failed to load messages', detail: String(err.message || err) });
+      res.status(500).json({ error: 'failed to load messages' });
     }
   });
 
@@ -155,7 +156,14 @@ function mountSessionsRoutes(app) {
       return;
     }
     const body = req.body || {};
-    const id = body.id || generateSessionId();
+    const generatedId = generateSessionId();
+    const id = body.id || generatedId;
+    // If client supplied an id, validate it against SESSION_ID_RE before use.
+    // Generated ids always match SESSION_ID_RE, so only check client-provided ones.
+    if (id !== generatedId && !SESSION_ID_RE.test(id)) {
+      res.status(400).json({ error: 'invalid session id' });
+      return;
+    }
     const title = typeof body.title === 'string' ? body.title : null;
     const source = typeof body.source === 'string' ? body.source : 'cli';
     const startedAt = typeof body.started_at === 'number' ? body.started_at : Date.now() / 1000;
@@ -183,7 +191,7 @@ function mountSessionsRoutes(app) {
       invalidateProfilesResponseCache();
     } catch (err) {
       console.error('session create error', err);
-      res.status(500).json({ error: 'failed to create session', detail: String(err.message || err) });
+      res.status(500).json({ error: 'failed to create session' });
     }
   });
 
@@ -219,7 +227,7 @@ function mountSessionsRoutes(app) {
       }
     } catch (err) {
       console.error('delete session error', err);
-      res.status(500).json({ error: 'failed to delete session', detail: String(err.message || err) });
+      res.status(500).json({ error: 'failed to delete session' });
     }
   });
 }

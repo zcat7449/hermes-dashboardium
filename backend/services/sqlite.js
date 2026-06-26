@@ -54,13 +54,6 @@ function closeDbs() {
   dbConnections.clear();
 }
 
-function getSqliteResult(dbPath, sql) {
-  try {
-    const result = require('child_process').execFileSync('sqlite3', [dbPath, sql], { encoding: 'utf8', timeout: 2000, maxBuffer: 1024 * 1024 });
-    return result.trim().split('\n').filter(Boolean);
-  } catch { return []; }
-}
-
 function getSqliteResultWithParams(dbPath, sql, params = []) {
   try {
     const args = ['-json'];
@@ -117,7 +110,6 @@ async function scanBoardsForProfileTasks() {
 module.exports = {
   getDb,
   closeDbs,
-  getSqliteResult,
   getSqliteResultWithParams,
   scanBoardsForProfileTasks,
   dbConnections,
