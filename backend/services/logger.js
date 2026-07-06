@@ -14,10 +14,14 @@ function format(level, message, data) {
 function log(level, message, data) {
   if (LEVELS[level] < currentLevel) return;
   const line = format(level, message, data);
-  if (level === 'error') {
-    process.stderr.write(line + '\n');
-  } else {
-    process.stdout.write(line + '\n');
+  try {
+    if (level === 'error') {
+      process.stderr.write(line + '\n');
+    } else {
+      process.stdout.write(line + '\n');
+    }
+  } catch (_) {
+    // stdout/stderr closed (e.g. piped to head, systemd shutdown) — silently ignore
   }
 }
 

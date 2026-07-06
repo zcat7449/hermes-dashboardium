@@ -58,7 +58,7 @@
     D.leaders.forEach((name, idx) => {
       if (name) {
         entries.push({
-          userId: 'user_telegram_123',
+          userId: 'default',
           role: 'leader',
           profile: name,
           order: idx,
@@ -67,7 +67,7 @@
     });
     D.watched.forEach((name, idx) => {
       entries.push({
-        userId: 'user_telegram_123',
+        userId: 'default',
         role: 'watched',
         profile: name,
         order: idx,

@@ -104,9 +104,8 @@ async function runTests() {
   const profiles3 = await buildProfilesResponse(null);
   const backend3 = profiles3.find(p => p.name === 'backend');
   assert(backend3, 'backend profile found');
-  assert.strictEqual(backend3.usage_percent, 70, 'usage_percent=70');
-  assert(backend3.usage_percent <= 1000, 'usage_percent capped at 1000');
-  console.log('✓ usage_percent=70 (not capped at 99)');
+  assert.strictEqual(backend3.usage_percent, -1, 'usage_percent=-1 (no agent.log, N/A)');
+  console.log('✓ usage_percent=-1 when agent.log unavailable (N/A)');
 
   console.log('\n--- provider field in response ---');
 
@@ -158,9 +157,9 @@ async function runTests() {
   assert(backend6, 'backend profile found');
   assert.strictEqual(backend6.context_limit, 1000000, 'fallback dict context_limit');
   assert.strictEqual(backend6.context_limit_source, 'dict', 'fallback source=dict');
-  // usage from exportHermesSession mock: 500+200=700, context_limit=1000000 -> 0%
-  assert.strictEqual(backend6.usage_percent, 0, 'fallback usage_percent=0 (700/1000000)');
-  console.log('✓ fallback: context_limit=1000000, source=dict, usage_percent=0');
+  // No agent.log → usage_percent=-1 (N/A), not cumulative tokens
+  assert.strictEqual(backend6.usage_percent, -1, 'fallback usage_percent=-1 (N/A)');
+  console.log('✓ fallback: context_limit=1000000, source=dict, usage_percent=-1 (N/A)');
 
   console.log('\nProfiles route tests passed');
 }
