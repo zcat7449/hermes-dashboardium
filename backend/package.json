@@ -8,11 +8,16 @@
     "test": "node test-cache.js && node test-sessions.js && node test-http-sessions.js && node test-auth.js && node test-rate-limit.js && node test-ws.js && node test-input-validation.js && node test-tasks.js && node test-user-role.js && node test-ollama-context.js && node test-profiles.js && node test-pg-persistence.js",
     "test:ci": "node test-cache.js && node test-auth.js && node test-input-validation.js && node test-tasks.js && node test-user-role.js",
     "test:full": "node test-cache.js && node test-sessions.js && node test-http-sessions.js && node test-auth.js && node test-ws.js && node test-input-validation.js && node test-tasks.js && node test-user-role.js",
-    "coverage-ci": "c8 --reporter=lcov --check-coverage --branches=70 --functions=70 --lines=70 --statements=70 node test-cache.js && c8 --reporter=lcov --check-coverage --branches=70 --functions=70 --lines=70 --statements=70 node test-auth.js && c8 --reporter=lcov --check-coverage --branches=70 --functions=70 --lines=70 --statements=70 node test-input-validation.js"
+    "coverage-ci": "c8 --reporter=lcov --check-coverage --branches=70 --functions=70 --lines=70 --statements=70 node test-cache.js && c8 --reporter=lcov --check-coverage --branches=70 --functions=70 --lines=70 --statements=70 node test-auth.js && c8 --reporter=lcov --check-coverage --branches=70 --functions=70 --lines=70 --statements=70 node test-input-validation.js",
+    "lint": "eslint . --ignore-pattern node_modules --ignore-pattern 'test-*.js'",
+    "format": "prettier --write '**/*.js' '!node_modules/**' '!test-*.js'"
   },
   "keywords": [],
   "author": "",
   "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "dependencies": {
     "better-sqlite3": "^12.10.1",
     "express": "^5.2.1",
@@ -21,6 +26,9 @@
     "ws": "^8.21.0"
   },
   "devDependencies": {
-    "c8": "^11.0.0"
+    "@eslint/js": "^10.0.1",
+    "c8": "^11.0.0",
+    "eslint": "^10.6.0",
+    "prettier": "^3.9.4"
   }
 }

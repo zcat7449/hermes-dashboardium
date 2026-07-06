@@ -24,7 +24,7 @@ const AUTH_PASSWORD = process.env.AUTH_PASSWORD || '';
 
 const { context_limits: MODEL_CONTEXT_LIMITS, default_context_limit: DEFAULT_CONTEXT_LIMIT } = require('./models.json');
 
-const SESSION_ID_RE = /^[a-zA-Z0-9_:.\-]+$/;
+const SESSION_ID_RE = /^[a-zA-Z0-9_:.-]+$/;
 const PROFILE_NAME_RE = /^[a-zA-Z0-9_-]+$/;
 
 module.exports = {

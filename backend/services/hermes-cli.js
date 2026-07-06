@@ -135,7 +135,7 @@ async function deleteHermesSession(profile, sessionId) {
 
 async function renameHermesSession(profile, sessionId, title) {
   if (!SESSION_ID_RE.test(sessionId) || typeof title !== 'string') return false;
-  const safeTitle = title.replace(/[\r\n\x00]/g, '');
+  const safeTitle = title.replace(/[\r\n\0]/g, '');
   try {
     await runHermesSessions(profile, ['rename', sessionId, safeTitle], 10000);
     return true;
