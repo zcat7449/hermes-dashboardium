@@ -1,6 +1,7 @@
 const { spawn, execFile } = require('child_process');
 const { promisify } = require('util');
 const execFileAsync = promisify(execFile);
+const log = require('./logger');
 const { HERMES_BIN, PROFILE_SWITCH_TIMEOUT_MS, CHAT_TIMEOUT_MS, SESSION_ID_RE } = require('../config');
 
 // ---- Hermes CLI sessions ----
@@ -127,7 +128,7 @@ async function deleteHermesSession(profile, sessionId) {
     await runHermesSessions(profile, ['delete', '--yes', sessionId], 10000);
     return true;
   } catch (err) {
-    console.error('hermes sessions delete failed', profile, sessionId, err.message);
+    log.error('hermes sessions delete failed', {profile, sessionId, error: err.message});
     return false;
   }
 }
@@ -139,7 +140,7 @@ async function renameHermesSession(profile, sessionId, title) {
     await runHermesSessions(profile, ['rename', sessionId, safeTitle], 10000);
     return true;
   } catch (err) {
-    console.error('hermes sessions rename failed', profile, sessionId, err.message);
+    log.error('hermes sessions rename failed', {profile, sessionId, error: err.message});
     return false;
   }
 }

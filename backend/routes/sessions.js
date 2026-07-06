@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const log = require('../services/logger');
 const { PROFILES_DIR, PROFILE_NAME_RE, SESSION_ID_RE } = require('../config');
 const { getProfileStateDb } = require('../services/profiles');
 const { getCachedSessions, invalidateProfilesResponseCache, profileCache, taskCache, sessionsCache } = require('../services/cache');
@@ -65,7 +66,7 @@ function mountSessionsRoutes(app) {
 
       res.json({ ok: true, name: newName });
     } catch (err) {
-      console.error('profile rename error', err);
+      log.error('profile rename error', {error: err.message || String(err)});
       res.status(500).json({ error: 'failed to rename profile' });
     }
   });
@@ -94,7 +95,7 @@ function mountSessionsRoutes(app) {
 
       res.json({ ok: true, deleted: true, name });
     } catch (err) {
-      console.error('profile delete error', err);
+      log.error('profile delete error', {error: err.message || String(err)});
       res.status(500).json({ error: 'failed to delete profile' });
     }
   });
@@ -115,7 +116,7 @@ function mountSessionsRoutes(app) {
       const sessions = await getCachedSessions(profile);
       res.json({ profile, sessions });
     } catch (err) {
-      console.error('sessions list error', profile, err);
+      log.error('sessions list error', {profile, error: err.message || String(err)});
       res.status(500).json({ error: 'failed to list sessions' });
     }
   });
@@ -143,7 +144,7 @@ function mountSessionsRoutes(app) {
       })).filter(Boolean);
       res.json({ profile, session_id: sessionId, messages });
     } catch (err) {
-      console.error('messages error', err);
+      log.error('messages error', {error: err.message || String(err)});
       res.status(500).json({ error: 'failed to load messages' });
     }
   });
@@ -184,13 +185,13 @@ function mountSessionsRoutes(app) {
         try {
           await createPgSession({ id, profile, title, source, started_at: startedAt });
         } catch (pgErr) {
-          console.error('PG mirror session failed', profile, id, pgErr.message);
+          log.error('PG mirror session failed', {profile, id, error: pgErr.message});
         }
       }
       res.status(201).json({ id, profile, title, source, started_at: startedAt });
       invalidateProfilesResponseCache();
     } catch (err) {
-      console.error('session create error', err);
+      log.error('session create error', {error: err.message || String(err)});
       res.status(500).json({ error: 'failed to create session' });
     }
   });
@@ -226,7 +227,7 @@ function mountSessionsRoutes(app) {
         res.status(500).json({ error: 'failed to delete session' });
       }
     } catch (err) {
-      console.error('delete session error', err);
+      log.error('delete session error', {error: err.message || String(err)});
       res.status(500).json({ error: 'failed to delete session' });
     }
   });

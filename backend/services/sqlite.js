@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const sqlite3 = require('better-sqlite3');
 const Database = sqlite3;
+const log = require('./logger');
 const { KANBAN_BOARDS_DIR, SQLITE_BUSY_RETRIES, SQLITE_TIMEOUT_MS } = require('../config');
 
 let dbConnections = new Map();
@@ -40,7 +41,7 @@ async function getDb(boardPath) {
       db = await openDbWithRetry(boardPath, SQLITE_BUSY_RETRIES);
       dbConnections.set(boardPath, db);
     } catch (err) {
-      console.error('failed to open board db', boardPath, err.message);
+      log.error('failed to open board db', {boardPath, error: err.message});
       return null;
     }
   }
@@ -76,7 +77,7 @@ async function scanBoardsForProfileTasks() {
       .filter(d => d.isDirectory())
       .map(d => d.name);
   } catch (err) {
-    console.error('failed to read boards dir', err);
+    log.error('failed to read boards dir', {error: err.message || String(err)});
   }
   for (const board of boardDirs) {
     const dbPath = path.join(KANBAN_BOARDS_DIR, board, 'kanban.db');

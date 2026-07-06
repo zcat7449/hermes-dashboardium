@@ -42,9 +42,14 @@
         if (i < C.LEADER_SLOTS) newLeaders[i] = e.profile;
       });
       D.leaders = newLeaders;
+      const watchedEntries = entries
+        .filter(e => e.role === 'watched')
+        .sort((a, b) => a.order - b.order);
+      D.watched = watchedEntries.map(e => e.profile).slice(0, D.MAX_WATCHED);
     } catch (e) {
       console.warn('loadUserRole error, using defaults', e);
       D.leaders = ['orchestrator', 'rechelok', 'aitrainer', null];
+      D.watched = [];
     }
   }
 
@@ -59,6 +64,14 @@
           order: idx,
         });
       }
+    });
+    D.watched.forEach((name, idx) => {
+      entries.push({
+        userId: 'user_telegram_123',
+        role: 'watched',
+        profile: name,
+        order: idx,
+      });
     });
     D.userRoleEntries = entries;
     try {

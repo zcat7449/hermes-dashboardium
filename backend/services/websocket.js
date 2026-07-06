@@ -1,6 +1,7 @@
 // WebSocket server for real-time profile updates, chat, and optimize.
 // Lightweight delta polling — checks only message_count, no full profile rebuild.
 const WebSocket = require('ws');
+const log = require('./logger');
 const { buildProfilesResponse } = require('../routes/profiles');
 const { hermesChat, parseHermesChatOutput, sanitizeChatMessage } = require('./hermes-cli');
 const { getCachedSessions } = require('./cache');
@@ -72,7 +73,7 @@ function initWebSocket(httpServer) {
     }
 
     const ip = req.socket.remoteAddress || 'unknown';
-    console.log(`ws: client connected from ${ip}`);
+    log.info('ws client connected', {ip});
 
     // Send initial profiles snapshot immediately
     sendProfilesSnapshot(ws);
@@ -89,11 +90,11 @@ function initWebSocket(httpServer) {
     });
 
     ws.on('close', () => {
-      console.log(`ws: client disconnected from ${ip}`);
+      log.info('ws client disconnected', {ip});
     });
 
     ws.on('error', (err) => {
-      console.error('ws: client error', err.message);
+      log.error('ws client error', {error: err.message});
     });
   });
 
@@ -101,7 +102,7 @@ function initWebSocket(httpServer) {
   LEADER_PROFILES = loadLeaderProfiles();
   startDeltaPolling();
 
-  console.log(`WebSocket server initialized on /ws (delta polling ${WS_DELTA_POLL_MS}ms, ${LEADER_PROFILES.length} leaders)`);
+  log.info('WebSocket server initialized', {wsPath: '/ws', deltaPollMs: WS_DELTA_POLL_MS, leaders: LEADER_PROFILES.length});
 }
 
 function startDeltaPolling() {
@@ -223,7 +224,7 @@ async function handleWsMessage(ws, msg, req) {
             await insertSessionMessage(currentSessionId, profile, 'user', safeMsg);
             await insertSessionMessage(currentSessionId, profile, 'assistant', responseText);
           } catch (err) {
-            console.error('ws: failed to persist session messages', err);
+            log.error('ws: failed to persist session messages', {error: err.message || String(err)});
           }
         }
         ws.send(JSON.stringify({
@@ -235,7 +236,7 @@ async function handleWsMessage(ws, msg, req) {
         }));
         invalidateProfilesResponseCache();
       } catch (err) {
-        console.error('ws: chat error', err);
+        log.error('ws chat error', {error: err.message || String(err)});
         ws.send(JSON.stringify({ type: 'chat_error', error: 'chat failed: ' + (err.message || String(err)) }));
       }
       break;
@@ -264,7 +265,7 @@ async function handleWsMessage(ws, msg, req) {
         ws.send(JSON.stringify({ type: 'optimize_response', profile, status: 'optimized' }));
         invalidateProfilesResponseCache();
       } catch (err) {
-        console.error('ws: optimize error', err);
+        log.error('ws optimize error', {error: err.message || String(err)});
         ws.send(JSON.stringify({ type: 'optimize_error', error: 'optimize failed: ' + (err.message || String(err)) }));
       }
       break;

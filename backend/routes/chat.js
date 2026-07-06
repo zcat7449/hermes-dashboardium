@@ -1,4 +1,5 @@
 const { isPgAvailable, insertSessionMessage } = require('../db');
+const log = require('../services/logger');
 const { invalidateProfilesResponseCache } = require('../services/cache');
 const { hermesChat, parseHermesChatOutput, sanitizeChatMessage } = require('../services/hermes-cli');
 const { checkChatRateLimit } = require('../middleware/rate-limit');
@@ -65,7 +66,7 @@ function mountChatRoutes(app) {
           await insertSessionMessage(currentSessionId, profile, 'user', message);
           await insertSessionMessage(currentSessionId, profile, 'assistant', responseText);
         } catch (err) {
-          console.error('failed to persist session messages', err);
+          log.error('failed to persist session messages', {error: err.message || String(err)});
         }
       }
       res.json({
@@ -95,10 +96,10 @@ function mountChatRoutes(app) {
           // Telegram push is best-effort
         }
       } else if (tgTarget) {
-        console.warn('TELEGRAM_TARGET has invalid format, skipping push:', tgTarget);
+        log.warn('TELEGRAM_TARGET invalid format', {tgTarget});
       }
     } catch (err) {
-      console.error('chat error', err);
+      log.error('chat error', {error: err.message || String(err)});
       res.status(500).json({ error: 'chat failed' });
     }
   });
@@ -124,7 +125,7 @@ function mountChatRoutes(app) {
       res.json({ profile, status: 'optimized' });
       invalidateProfilesResponseCache();
     } catch (err) {
-      console.error('optimize error', err);
+      log.error('optimize error', {error: err.message || String(err)});
       res.status(500).json({ error: 'optimize failed' });
     }
   });

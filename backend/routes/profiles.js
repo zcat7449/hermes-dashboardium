@@ -1,4 +1,5 @@
 const { isPgAvailable, getPgInitError } = require('../db');
+const log = require('../services/logger');
 const { listProfiles } = require('../services/profiles');
 const { scanBoardsForProfileTasks } = require('../services/sqlite');
 const { getCachedSessions, getCachedUsage, getCachedContextLog, invalidateProfilesResponseCache, profileCache, taskCache, profilesResponseCache } = require('../services/cache');
@@ -74,26 +75,11 @@ async function buildProfilesResponse(selectedProfile) {
     }
 
     if (contextLimitSource !== 'log') {
-      // Fallback: exportHermesSession + ollama-context
-      if (!selectedProfile || profile.name === selectedProfile) {
-        try {
-          const sessions = await getCachedSessions(profile.name);
-          const activeS = sessions.find(s => s.source !== 'cli') || sessions[0];
-          if (activeS) {
-            activeSession = { id: activeS.id, title: activeS.title, started_at: null };
-            const full = await getCachedUsage(profile.name, activeS.id);
-            if (full) {
-              usage = {
-                input_tokens: parseInt(full.input_tokens) || 0,
-                output_tokens: parseInt(full.output_tokens) || 0,
-              };
-              activeSession.started_at = parseFloat(full.started_at) || null;
-            }
-          }
-        } catch (usageErr) {
-          console.error('usage read error', profile.name, usageErr.message);
-        }
-      }
+      // agent.log had no data — profile is idle or log is empty.
+      // Do NOT fall back to exportHermesSession (cumulative tokens, not current context).
+      // Show context limit from API/dict, but usage as N/A.
+      usagePercent = -1; // signal: no real-time context data
+      usage = { input_tokens: 0, output_tokens: 0 };
 
       try {
         const apiLimit = await getRealNumCtx(profile.model, profile.provider);
@@ -108,8 +94,6 @@ async function buildProfilesResponse(selectedProfile) {
         contextLimit = getModelContextLimit(profile.model);
         contextLimitSource = contextLimit === DEFAULT_CONTEXT_LIMIT ? 'default' : 'dict';
       }
-      const totalUsage = usage.input_tokens + usage.output_tokens;
-      usagePercent = contextLimit > 0 ? Math.min(1000, Math.round((totalUsage / contextLimit) * 100)) : 0;
     }
 
     return {
@@ -160,7 +144,7 @@ function mountProfilesRoutes(app) {
       }
       res.json(data);
     } catch (err) {
-      console.error('profiles endpoint error', err);
+      log.error('profiles endpoint error', {error: err.message || String(err)});
       res.status(500).json({ error: 'failed to collect profiles' });
     }
   });

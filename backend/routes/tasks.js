@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const log = require('../services/logger');
 const { KANBAN_BOARDS_DIR } = require('../config');
 const { getDb } = require('../services/sqlite');
 const { hermesKanbanBlock, hermesKanbanUnblock, hermesKanbanReassign, hermesKanbanArchive } = require('../services/hermes-cli');
@@ -87,7 +88,7 @@ function mountTasksRoutes(app) {
         runs,
       });
     } catch (err) {
-      console.error('task details error', err);
+      log.error('task details error', {error: err.message || String(err)});
       res.status(500).json({ error: 'failed to load task details' });
     }
   });
@@ -105,7 +106,7 @@ function mountTasksRoutes(app) {
       await hermesKanbanBlock(taskId, reason);
       res.json({ board, task_id: taskId, status: 'blocked', reason });
     } catch (err) {
-      console.error('block task error', err);
+      log.error('block task error', {error: err.message || String(err)});
       res.status(500).json({ error: 'failed to block task' });
     }
   });
@@ -123,7 +124,7 @@ function mountTasksRoutes(app) {
       await hermesKanbanUnblock(taskId, reason);
       res.json({ board, task_id: taskId, status: 'unblocked', reason });
     } catch (err) {
-      console.error('unblock task error', err);
+      log.error('unblock task error', {error: err.message || String(err)});
       res.status(500).json({ error: 'failed to unblock task' });
     }
   });
@@ -149,7 +150,7 @@ function mountTasksRoutes(app) {
       await hermesKanbanReassign(taskId, assignee);
       res.json({ board, task_id: taskId, assignee, status: 'reassigned' });
     } catch (err) {
-      console.error('reassign task error', err);
+      log.error('reassign task error', {error: err.message || String(err)});
       res.status(500).json({ error: 'failed to reassign task' });
     }
   });
@@ -166,7 +167,7 @@ function mountTasksRoutes(app) {
       await hermesKanbanArchive(taskId);
       res.json({ board, task_id: taskId, status: 'archived' });
     } catch (err) {
-      console.error('archive task error', err);
+      log.error('archive task error', {error: err.message || String(err)});
       res.status(500).json({ error: 'failed to archive task' });
     }
   });

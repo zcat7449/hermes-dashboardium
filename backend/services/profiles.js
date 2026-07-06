@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const yaml = require('js-yaml');
+const log = require('./logger');
 const { PROFILES_DIR } = require('../config');
 
 const { homedir } = require('os');
@@ -35,7 +36,7 @@ function listProfiles(profileCache) {
       .map(d => d.name)
       .sort();
   } catch (err) {
-    console.error('failed to read profiles dir', err);
+    log.error('failed to read profiles dir', {error: err.message || String(err)});
   }
   const data = entries.map(name => {
     const configPath = path.join(PROFILES_DIR, name, 'config.yaml');

@@ -171,23 +171,22 @@
   function renderBottom() {
     const allNames = Object.keys(D.profilesByName).sort();
     const leaderSet = new Set(D.leaders.filter(Boolean));
-    let list = allNames.filter(n => !leaderSet.has(n));
-    if (D.filterText) {
-      list = list.filter(n => n.toLowerCase().includes(D.filterText));
-    }
-    D.els.allCount.textContent = allNames.length;
-    D.els.filterMeta.textContent = D.filterText
-      ? t('filter_meta') + ': ' + list.length + '/' + (allNames.length - leaderSet.size)
-      : '';
+    const watchedSet = new Set(D.watched);
+    // Filter watched to only existing profiles
+    D.watched = D.watched.filter(n => allNames.includes(n));
+    const list = D.watched.filter(n => !leaderSet.has(n));
+    D.els.allCount.textContent = D.watched.length + '/' + D.MAX_WATCHED;
+    D.els.filterMeta.textContent = '';
     if (list.length === 0) {
-      D.els.bottomGrid.innerHTML = `<div class="card" style="grid-column: 1/-1; cursor: default; min-height: 80px; align-items: center; justify-content: center; color: rgba(224,224,224,0.4);">
-        ${D.filterText ? t('no_profiles_filter') : t('no_profiles_outside')}
+      D.els.bottomGrid.innerHTML = `<div class="card empty-slot" style="grid-column: 1/-1; cursor: default; min-height: 80px; align-items: center; justify-content: center; color: rgba(224,224,224,0.4);">
+        <button class="assign-btn" data-action="add-watched">+ ${t('add_watched') || 'Добавить профили'}</button>
       </div>`;
       return;
     }
     D.els.bottomGrid.innerHTML = list.map(name => {
       const p = D.profilesByName[name];
       return `<div class="card" data-name="${U.esc(name)}">
+        <button class="card-remove-btn" data-action="remove-watched" data-wname="${U.esc(name)}" title="Убрать">×</button>
         ${renderCardBody(p)}
       </div>`;
     }).join('');

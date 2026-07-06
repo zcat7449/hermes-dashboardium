@@ -1,4 +1,5 @@
 const fs = require('fs');
+const log = require('../services/logger');
 const { USER_ROLE_PATH } = require('../config');
 const { invalidateProfilesResponseCache } = require('../services/cache');
 
@@ -9,7 +10,7 @@ function readUserRole() {
     const parsed = JSON.parse(raw);
     return { entries: Array.isArray(parsed.entries) ? parsed.entries : [] };
   } catch (err) {
-    console.error('failed to read user_role.json', err.message);
+    log.error('failed to read user_role.json', {error: err.message});
     return { entries: [] };
   }
 }
@@ -19,7 +20,7 @@ function writeUserRole(data) {
     fs.writeFileSync(USER_ROLE_PATH, JSON.stringify(data, null, 2), 'utf8');
     return true;
   } catch (err) {
-    console.error('failed to write user_role.json', err.message);
+    log.error('failed to write user_role.json', {error: err.message});
     return false;
   }
 }

@@ -8,6 +8,9 @@
   D.profilesByName = {};
   // leaders: array of 4 names (string or null)
   D.leaders = [null, null, null, null];
+  // watched: array of up to 12 profile names (bottom section)
+  D.watched = [];
+  D.MAX_WATCHED = 12;
   // userRoleEntries: full entries from user_role.json (for persistence)
   D.userRoleEntries = [];
   // chat log per leader name: { [name]: [{role, text, ts}] }

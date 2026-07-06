@@ -78,7 +78,7 @@
       tasks: raw.tasks || [],
       usage_input: raw.usage_input || 0,
       usage_output: raw.usage_output || 0,
-      usage_percent: raw.usage_percent || 0,
+      usage_percent: typeof raw.usage_percent === 'number' ? raw.usage_percent : 0,
       context_limit: raw.context_limit || 1000000,
       started_at_ms,
       uptime_seconds: isFinite(uptime) ? uptime : 0,
@@ -93,6 +93,11 @@
   }
 
   function fmtUsageStr(p) {
+    if (p.usage_percent === -1) {
+      const limit = p.context_limit || 1000000;
+      const total = limit >= 1000000 ? (limit / 1000000).toFixed(0) + 'm' : limit >= 1000 ? (limit / 1000).toFixed(0) + 'k' : String(limit);
+      return `N/A / ${total} │ ${'░'.repeat(10)} —`;
+    }
     const totalTokens = p.usage_input + p.usage_output;
     const limit = p.context_limit || 1000000;
     const pct = typeof p.usage_percent === 'number' ? p.usage_percent : (limit > 0 ? Math.min(100, Math.round(totalTokens / limit * 100)) : 0);

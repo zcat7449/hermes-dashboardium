@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const log = require('../services/logger');
 
 const AUDIT_LOG_DIR = process.env.AUDIT_LOG_DIR || path.join(process.env.HOME || require('os').homedir(), '.hermes', 'logs');
 const AUDIT_LOG_FILE = path.join(AUDIT_LOG_DIR, 'dashboardium-audit.jsonl');
@@ -56,11 +57,11 @@ function auditLog(req, profile, message) {
     fs.appendFileSync(AUDIT_LOG_FILE, line);
   } catch (err) {
     // Fallback to stdout if file write fails
-    console.log(line.trim());
+    log.info('audit', {line: line.trim()});
   }
 
   // Also log to stdout for immediate visibility
-  console.log(line.trim());
+  log.info('audit', {line: line.trim()});
 }
 
 module.exports = auditLog;

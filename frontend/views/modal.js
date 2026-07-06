@@ -11,16 +11,24 @@
     if (!D.profileModalOpen) return;
     const allNames = Object.keys(D.profilesByName).sort();
     const leaderSet = new Set(D.leaders.filter(Boolean));
-    const candidates = allNames.filter(n => !leaderSet.has(n));
+    const watchedSet = new Set(D.watched);
+    const isWatched = D.profileModalTarget === 'watched';
+    const candidates = isWatched
+      ? allNames.filter(n => !leaderSet.has(n) && !watchedSet.has(n))
+      : allNames.filter(n => !leaderSet.has(n));
     const filtered = D.profileModalFilter
       ? candidates.filter(n => n.toLowerCase().includes(D.profileModalFilter.toLowerCase()))
       : candidates;
 
-    const remaining = C.LEADER_SLOTS - D.leaders.filter(Boolean).length;
+    const remaining = isWatched
+      ? D.MAX_WATCHED - D.watched.length
+      : C.LEADER_SLOTS - D.leaders.filter(Boolean).length;
     const selectedCount = D.profileModalSelected.length;
 
+    const title = isWatched ? 'Добавить профили для наблюдения' : 'Выберите профили';
+
     const listHtml = filtered.length === 0
-      ? '<div class="profile-modal-empty">' + (D.profileModalFilter ? 'ничего не найдено' : 'все профили уже назначены') + '</div>'
+      ? '<div class="profile-modal-empty">' + (D.profileModalFilter ? 'ничего не найдено' : 'все профили уже добавлены') + '</div>'
       : filtered.map(n => {
           const p = D.profilesByName[n] || {};
           const status = p.task_status || 'idle';
@@ -41,7 +49,7 @@
     overlay.className = 'profile-modal-overlay';
     overlay.innerHTML = `<div class="profile-modal">
       <div class="profile-modal-header">
-        <h3>Выберите профили · <span class="pm-counter">${selectedCount}/${remaining}</span></h3>
+        <h3>${title} · <span class="pm-counter">${selectedCount}/${remaining}</span></h3>
         <div class="profile-modal-header-btns">
           <button class="profile-modal-close-btn" data-action="pm-close-text">Закрыть</button>
           <button class="profile-modal-close" data-action="pm-close">&times;</button>
@@ -98,17 +106,34 @@
     D.profileModalOpen = true;
     D.profileModalFilter = '';
     D.profileModalSelected = [];
+    D.profileModalTarget = 'leaders'; // 'leaders' or 'watched'
+    renderProfileModal();
+  }
+
+  function showWatchedModal() {
+    D.profileModalOpen = true;
+    D.profileModalFilter = '';
+    D.profileModalSelected = [];
+    D.profileModalTarget = 'watched';
     renderProfileModal();
   }
 
   function closeProfileModal() {
     if (D.profileModalSelected.length > 0) {
-      let selIdx = 0;
-      for (let i = 0; i < C.LEADER_SLOTS && selIdx < D.profileModalSelected.length; i++) {
-        if (D.leaders[i] === null) {
-          D.leaders[i] = D.profileModalSelected[selIdx];
-          A.loadSessionsFor(D.profileModalSelected[selIdx]);
-          selIdx++;
+      if (D.profileModalTarget === 'watched') {
+        for (const name of D.profileModalSelected) {
+          if (D.watched.length < D.MAX_WATCHED && !D.watched.includes(name)) {
+            D.watched.push(name);
+          }
+        }
+      } else {
+        let selIdx = 0;
+        for (let i = 0; i < C.LEADER_SLOTS && selIdx < D.profileModalSelected.length; i++) {
+          if (D.leaders[i] === null) {
+            D.leaders[i] = D.profileModalSelected[selIdx];
+            A.loadSessionsFor(D.profileModalSelected[selIdx]);
+            selIdx++;
+          }
         }
       }
       A.saveUserRole().then(() => R.renderAll());
@@ -128,6 +153,7 @@
 
   window.Dashboard.Modal = {
     showProfileModal,
+    showWatchedModal,
     closeProfileModal,
     renderProfileModal,
     confirm: function(msg) {

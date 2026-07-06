@@ -214,6 +214,29 @@ main {
 }
 .card:hover .remove-leader-btn { opacity: 0.6; }
 .remove-leader-btn:hover { opacity: 1 !important; background: rgba(231,76,60,0.4); }
+.card-remove-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: rgba(231,76,60,0.15);
+  color: var(--red);
+  border: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 11px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s;
+  line-height: 1;
+  flex-shrink: 0;
+  z-index: 2;
+}
+.card:hover .card-remove-btn { opacity: 0.6; }
+.card-remove-btn:hover { opacity: 1 !important; background: rgba(231,76,60,0.4); }
 .top-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -279,7 +302,11 @@ main {
   gap: 6px;
   flex-shrink: 0;
   overflow-y: auto;
-  max-height: 100%;
+  max-height: 200px;
+}
+.bottom-grid:has(.empty-slot) {
+  max-height: 60px;
+  overflow-y: visible;
 }
 .bottom-grid .card {
   min-height: 200px;
@@ -998,11 +1025,11 @@ main {
   </div>
 
   <div class="section">
-    <h2><span data-i18n="all_profiles">Все профили</span> <span class="count" id="allCount">0</span></h2>
-    <div class="filter-bar">
-      <input type="text" id="filterInput" data-i18n-placeholder="search_placeholder" placeholder="Поиск / фильтр профилей…" autocomplete="off">
-      <span class="meta" id="filterMeta"></span>
-    </div>
+    <h2><span>Наблюдение</span> <span class="count" id="allCount">0/12</span>
+      <span class="add-leader-wrapper">
+        <button id="addWatchedBtn" class="add-leader-btn" title="Добавить профили">+</button>
+      </span>
+    </h2>
     <div class="bottom-grid" id="bottomGrid"></div>
   </div>
 

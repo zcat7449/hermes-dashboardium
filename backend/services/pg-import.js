@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { homedir } = require('os');
+const log = require('./logger');
 const { PROFILES_DIR, PG_IMPORT_FROM_SQLITE } = require('../config');
 const { isPgAvailable, query } = require('../db');
 
@@ -33,12 +34,12 @@ async function importSessionsFromSqlite() {
           );
           imported += 1;
         } catch (insertErr) {
-          console.error('import session failed', r.id, insertErr.message);
+          log.error('import session failed', {id: r.id, error: insertErr.message});
         }
       }
       db.close();
     } catch (err) {
-      console.error('failed to import from', file, err.message);
+      log.error('failed to import from', {file, error: err.message});
       if (db) { try { db.close(); } catch (_) {} }
     }
   }

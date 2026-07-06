@@ -2,6 +2,7 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
+const log = require('./services/logger');
 const { PORT, HOST, FRONTEND_DIR, PG_IMPORT_FROM_SQLITE, PROFILES_DIR } = require('./config');
 const { initPostgres, isPgAvailable, query, getPool } = require('./db');
 const { closeDbs } = require('./services/sqlite');
@@ -68,7 +69,7 @@ mountTasksRoutes(app);
 
 // Error handler
 app.use((err, req, res, next) => {
-  console.error('unhandled error', err && err.stack ? err.stack : String(err));
+  log.error('unhandled error', {stack: err && err.stack ? err.stack : String(err)});
   res.status(500).json({ error: 'internal server error' });
 });
 
@@ -79,15 +80,14 @@ if (require.main === module) {
     startRateLimitSweeper();
     const importResult = await importSessionsFromSqlite();
     if (importResult.imported > 0) {
-      console.log(`imported ${importResult.imported} sessions from ${importResult.files.length} sqlite files`);
+      log.info('sqlite import', {imported: importResult.imported, files: importResult.files.length});
     }
     const server = http.createServer(app);
     initWebSocket(server);
     server.listen(PORT, HOST, () => {
-      console.log(`Dashboardium backend listening on http://${HOST}:${PORT}`);
-      console.log(`WebSocket available on ws://${HOST}:${PORT}/ws`);
-      console.log(`PROFILES_DIR=${PROFILES_DIR}`);
-      console.log(`POSTGRES=${isPgAvailable()}`);
+      log.info('server started', {host: HOST, port: PORT});
+      log.info('websocket available', {host: HOST, port: PORT});
+      log.info('config', {PROFILES_DIR, POSTGRES: isPgAvailable()});
     });
   })();
 

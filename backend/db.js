@@ -1,4 +1,5 @@
 const { Pool } = require('pg');
+const log = require('./services/logger');
 
 const DATABASE_URL = process.env.DATABASE_URL;
 
@@ -46,7 +47,7 @@ async function getPool() {
     connectionTimeoutMillis: 5000,
   });
   pool.on('error', (err) => {
-    console.error('pg pool unexpected error', err.message);
+    log.error('pg pool unexpected error', {error: err.message});
     pgAvailable = false;
   });
   return pool;
@@ -56,7 +57,7 @@ async function initPostgres() {
   if (!DATABASE_URL) {
     pgAvailable = false;
     pgInitError = 'DATABASE_URL is not set';
-    console.error('postgres init skipped: DATABASE_URL is not set');
+    log.warn('postgres init skipped: DATABASE_URL is not set');
     return false;
   }
   try {
@@ -75,7 +76,7 @@ async function initPostgres() {
   } catch (err) {
     pgAvailable = false;
     pgInitError = err.message;
-    console.error('postgres init failed:', err.message);
+    log.error('postgres init failed', {error: err.message});
     return false;
   }
 }

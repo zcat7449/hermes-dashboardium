@@ -30,6 +30,14 @@
     });
   }
 
+  const addWatchedBtn = document.getElementById('addWatchedBtn');
+  if (addWatchedBtn) {
+    addWatchedBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      Modal.showWatchedModal();
+    });
+  }
+
   // ---- Chat optimization actions ----
   async function doOptimize(name) {
     if (D.optimizing.has(name)) return;
@@ -247,6 +255,17 @@
       const idx = D.leaders.indexOf(name);
       if (idx !== -1) {
         D.leaders[idx] = null;
+        A.saveUserRole().then(() => R.renderAll());
+      }
+    } else if (action === 'add-watched') {
+      e.stopPropagation();
+      Modal.showWatchedModal();
+    } else if (action === 'remove-watched') {
+      e.stopPropagation();
+      const name = t.dataset.wname;
+      const idx = D.watched.indexOf(name);
+      if (idx !== -1) {
+        D.watched.splice(idx, 1);
         A.saveUserRole().then(() => R.renderAll());
       }
     } else if (action === 'toggle-chat') {
