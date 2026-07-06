@@ -1,0 +1,538 @@
+openapi: "3.0.3"
+info:
+  title: Dashboardium API
+  description: |
+    Внутренний API панели управления Hermes.
+    Все эндпоинты требуют HTTP Basic Auth (заголовок `Authorization: Basic <base64>`).
+  version: "1.0.0"
+  contact:
+    name: Dashboardium
+    url: https://github.com/zcat7449/hermes-dashboardium
+
+servers:
+  - url: http://192.168.219.105:3010
+    description: Dev-стенд
+
+security:
+  - basicAuth: []
+
+components:
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+      description: HTTP Basic Auth — логин/пароль из `.env` (DASHBOARD_USER / DASHBOARD_PASS)
+
+  schemas:
+    Profile:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "dashboardium"
+        model:
+          type: string
+          example: "deepseek-v4-pro"
+        provider:
+          type: string
+          example: "ollama-cloud"
+        sessions:
+          type: integer
+          example: 42
+        tasks:
+          type: integer
+          example: 3
+        usage_percent:
+          type: integer
+          description: "Процент использования контекста. -1 = данные недоступны"
+          example: 45
+        status:
+          type: string
+          enum: [active, idle, error]
+          example: "active"
+
+    Session:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "20260706_143022_a1b2c3d4"
+        name:
+          type: string
+          example: "dashboardium"
+        created:
+          type: string
+          format: date-time
+        messages:
+          type: integer
+          example: 128
+
+    ChatMessage:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [user, assistant]
+        content:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    Task:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "t_c1e87a19"
+        title:
+          type: string
+        status:
+          type: string
+          enum: [pending, in_progress, completed, blocked, archived]
+        assignee:
+          type: string
+        board:
+          type: string
+        created:
+          type: string
+          format: date-time
+
+    UserRole:
+      type: object
+      properties:
+        entries:
+          type: array
+          items:
+            type: object
+            properties:
+              profile:
+                type: string
+              role:
+                type: string
+                enum: [owner, admin, viewer]
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "message is required"
+
+paths:
+  # ── Health ──
+  /api/health:
+    get:
+      summary: Проверка живости сервера
+      tags: [System]
+      security: []
+      responses:
+        "200":
+          description: Сервер жив
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+
+  # ── Profiles ──
+  /api/profiles:
+    get:
+      summary: Список всех профилей Hermes
+      tags: [Profiles]
+      responses:
+        "200":
+          description: Массив профилей
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Profile"
+
+  /api/profiles/{profile}/sessions:
+    get:
+      summary: Сессии конкретного профиля
+      tags: [Sessions]
+      parameters:
+        - name: profile
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-zA-Z0-9_-]+$"
+      responses:
+        "200":
+          description: Массив сессий
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Session"
+    post:
+      summary: Создать новую сессию для профиля
+      tags: [Sessions]
+      parameters:
+        - name: profile
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: Сессия создана
+
+  /api/profiles/{profile}/sessions/{id}:
+    patch:
+      summary: Переименовать сессию
+      tags: [Sessions]
+      parameters:
+        - name: profile
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+      responses:
+        "200":
+          description: Переименовано
+    delete:
+      summary: Удалить сессию
+      tags: [Sessions]
+      parameters:
+        - name: profile
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Удалено
+
+  /api/profiles/{profile}/sessions/{id}/messages:
+    get:
+      summary: История сообщений сессии
+      tags: [Sessions]
+      parameters:
+        - name: profile
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Массив сообщений
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChatMessage"
+
+  # ── Chat ──
+  /api/chat/{profile}:
+    post:
+      summary: Отправить сообщение в чат профиля
+      tags: [Chat]
+      parameters:
+        - name: profile
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-zA-Z0-9_-]+$"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [message]
+              properties:
+                message:
+                  type: string
+                  description: Текст сообщения
+                  example: "Привет, как дела?"
+                session_id:
+                  type: string
+                  description: ID существующей сессии (опционально)
+                  example: "20260706_143022_a1b2c3d4"
+      responses:
+        "200":
+          description: Ответ от Hermes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reply:
+                    type: string
+                  session_id:
+                    type: string
+        "400":
+          description: Неверный запрос
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429":
+          description: Rate limit (1 сообщение в 5 секунд)
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                example: 5
+
+  /api/optimize/{profile}:
+    post:
+      summary: Оптимизация контекста профиля
+      tags: [Chat]
+      parameters:
+        - name: profile
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Контекст оптимизирован
+
+  # ── Tasks ──
+  /api/tasks/{board}/{taskId}:
+    get:
+      summary: Детали задачи
+      tags: [Tasks]
+      parameters:
+        - name: board
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-zA-Z0-9_-]+$"
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Детали задачи
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+        "404":
+          description: Доска не найдена
+
+  /api/tasks/{board}/{taskId}/block:
+    post:
+      summary: Заблокировать задачу
+      tags: [Tasks]
+      parameters:
+        - name: board
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+      responses:
+        "200":
+          description: Задача заблокирована
+
+  /api/tasks/{board}/{taskId}/unblock:
+    post:
+      summary: Разблокировать задачу
+      tags: [Tasks]
+      parameters:
+        - name: board
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Задача разблокирована
+
+  /api/tasks/{board}/{taskId}/reassign:
+    post:
+      summary: Переназначить задачу
+      tags: [Tasks]
+      parameters:
+        - name: board
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                assignee:
+                  type: string
+      responses:
+        "200":
+          description: Задача переназначена
+
+  /api/tasks/{board}/{taskId}/archive:
+    post:
+      summary: Архивировать задачу
+      tags: [Tasks]
+      parameters:
+        - name: board
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Задача архивирована
+
+  # ── Sessions (legacy) ──
+  /api/sessions/rename:
+    post:
+      summary: Переименовать профиль (сессию в терминах UI)
+      tags: [Sessions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, new_name]
+              properties:
+                name:
+                  type: string
+                new_name:
+                  type: string
+      responses:
+        "200":
+          description: Переименовано
+
+  /api/sessions/{name}:
+    delete:
+      summary: Удалить профиль (сессию в терминах UI)
+      tags: [Sessions]
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Удалено
+
+  # ── User Role ──
+  /api/user-role:
+    get:
+      summary: Получить watched-профили и роли
+      tags: [UserRole]
+      responses:
+        "200":
+          description: Список watched-профилей
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserRole"
+    post:
+      summary: Добавить профиль в watched
+      tags: [UserRole]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [profile]
+              properties:
+                profile:
+                  type: string
+                role:
+                  type: string
+                  default: "viewer"
+      responses:
+        "200":
+          description: Добавлено
+
+  /api/user-role/{profile}:
+    delete:
+      summary: Удалить профиль из watched
+      tags: [UserRole]
+      parameters:
+        - name: profile
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Удалено
+
+tags:
+  - name: System
+    description: Health-check
+  - name: Profiles
+    description: Профили Hermes
+  - name: Sessions
+    description: Управление сессиями
+  - name: Chat
+    description: Чат с Hermes
+  - name: Tasks
+    description: Kanban-задачи
+  - name: UserRole
+    description: Watched-профили и роли

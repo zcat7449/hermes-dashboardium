@@ -4,210 +4,333 @@
 [![Node.js](https://img.shields.io/badge/Node.js-20+-green.svg)](https://nodejs.org)
 [![Hermes Agent](https://img.shields.io/badge/Hermes%20Agent-Compatible-blueviolet)](https://hermes-agent.nousresearch.com)
 
-> **Hermes Profiles Dashboard** — real-time monitoring, chat, and Kanban task management for Hermes Agent profiles.
+**Панель управления профилями Hermes Agent** — мониторинг, чат и Kanban-задачи в реальном времени.
 
 ![Dashboardium Screenshot](screenshot.png)
-*Dashboardium in action — real-time profile monitoring and Kanban management.*
 
 ---
 
-## Features
+## Что это и зачем
 
-- **Profile Monitoring** — View all active Hermes Agent profiles, their status, resource usage, and activity logs in real time.
-- **Chat with Leaders** — Communicate with profile leaders directly from the dashboard via WebSocket.
-- **Kanban Tasks** — Create, assign, and track tasks across Kanban boards integrated with Hermes profiles.
-- **WebSocket Real-Time** — Live updates for profile state changes, new messages, and task transitions without page reloads.
-- **i18n (RU / EN)** — Full Russian and English interface. Switch languages on the fly.
-- **HTTP Basic Auth** — Simple, secure authentication via `AUTH_USERNAME` / `AUTH_PASSWORD` environment variables.
-- **PostgreSQL (Optional)** — Session persistence and history storage when a database is configured.
+Если у вас запущено несколько профилей [Hermes Agent](https://hermes-agent.nousresearch.com) (orchestrator, backend, frontend, devops, qa и т.д.), Dashboardium даёт единую панель для:
+
+- **Мониторинга** — какие профили активны, сколько потребляют контекста, какие задачи висят
+- **Чата** — отправка сообщений любому профилю прямо из браузера, ответ приходит в реальном времени
+- **Kanban** — просмотр и управление задачами (блокировка, переназначение, архивация)
+- **Watched-профилей** — избранные профили всегда сверху, остальные скрыты
+
+Всё обновляется по WebSocket без перезагрузки страницы.
 
 ---
 
-## Installation
-
-### Prerequisites
-
-- [Node.js](https://nodejs.org) 20+
-- [Hermes Agent](https://hermes-agent.nousresearch.com) installed and configured
-- PostgreSQL (optional, for session persistence)
-
-### Recommended: gbrain (Personal Knowledge Base)
-
-Dashboardium works best with [gbrain](https://github.com/nousresearch/gbrain) — a personal knowledge base that stores project docs, QA reports, and deployment history. When gbrain is connected, the dashboard can surface relevant context from past work.
-
-**Check if gbrain is already installed:**
-```bash
-curl -s http://localhost:7333/mcp/health 2>/dev/null && echo "✅ gbrain already running" || echo "❌ gbrain not found"
-```
-
-**If not installed, set it up:**
-```bash
-# See: https://github.com/nousresearch/gbrain#quick-start
-```
-
-**Then add to every Hermes profile config:**
-```bash
-for profile in default orchestrator backend frontend devops qa seo devsecops rag; do
-  hermes config set mcp_servers.gbrain.url "http://localhost:7333/mcp" --profile "$profile"
-  hermes config set mcp_servers.gbrain.headers.Authorization "Bearer your-gbrain-token" --profile "$profile"
-  hermes config set mcp_servers.gbrain.timeout 60 --profile "$profile"
-done
-```
-
-### Quick Start
+## Быстрый старт
 
 ```bash
-# Clone the repository
 git clone https://github.com/zcat7449/dashboardium.git
 cd dashboardium
 
-# Install backend dependencies
+# Бэкенд
 cd backend && npm install && cd ..
 
-# Configure environment
+# Конфигурация
 cp .env.example .env
-# Edit .env with your settings (see Configuration below)
+# → отредактируйте AUTH_PASSWORD и DATABASE_URL (опционально)
 
-# Enable pre-commit hooks (checks that new features have tests)
-git config core.hooksPath .githooks
-
-# Auto-configure gbrain for all Hermes profiles (recommended)
-node setup.js
-
-# Start the server
+# Запуск
 npm start
 ```
 
-The dashboard will be available at **http://localhost:3010**.
+Открывайте **http://localhost:3010** — логин и пароль из `.env`.
 
 ---
 
-## Configuration
+## Требования
 
-All configuration is done via environment variables. Copy `.env.example` to `.env` and adjust as needed.
-
-| Variable | Default | Description |
+| Компонент | Версия | Обязательно |
 |---|---|---|
-| `PORT` | `3010` | HTTP server port |
-| `HOST` | `0.0.0.0` | Bind address |
-| `AUTH_USERNAME` | `admin` | HTTP Basic Auth username |
-| `AUTH_PASSWORD` | *(required)* | HTTP Basic Auth password |
-| `PROFILES_DIR` | `$HOME/.hermes/profiles` | Path to Hermes profiles directory |
-| `KANBAN_BOARDS_DIR` | `$HOME/.hermes/kanban/boards` | Path to Kanban boards directory |
-| `HERMES_BIN` | `hermes` | Hermes CLI binary name or path |
-| `DATABASE_URL` | *(optional)* | PostgreSQL connection string for session persistence |
-| `FRONTEND_ORIGIN` | `http://localhost:3010` | Allowed CORS origin for the frontend |
-| `TELEGRAM_TARGET` | `telegram` | Telegram forwarding target (optional) |
+| Node.js | 20+ (или 18+) | Да |
+| Hermes Agent | любая | Да |
+| PostgreSQL | 14+ | Нет (сессии хранятся в SQLite) |
+
+Dashboardium читает профили Hermes из `~/.hermes/profiles/` и Kanban-доски из `~/.hermes/kanban/boards/`. Если Hermes установлен и настроен — Dashboardium подхватит всё автоматически.
 
 ---
 
-## Architecture
+## Конфигурация
 
-```
-┌─────────────────────────────────────────────────────┐
-│                    Browser                           │
-│  (Vanilla JS + WebSocket Client + i18n)             │
-└──────────────────────┬──────────────────────────────┘
-                       │ HTTP / WebSocket
-                       ▼
-┌─────────────────────────────────────────────────────┐
-│              Express Server (Node.js)                │
-│  ┌──────────┐  ┌──────────┐  ┌──────────────────┐  │
-│  │ Auth     │  │ REST API │  │ WebSocket Server  │  │
-│  │ Middleware│  │ Routes   │  │ (ws)              │  │
-│  └──────────┘  └──────────┘  └──────────────────┘  │
-└──────────────────────┬──────────────────────────────┘
-                       │
-        ┌──────────────┼──────────────┐
-        ▼              ▼              ▼
-┌──────────────┐ ┌──────────┐ ┌──────────────┐
-│ Hermes       │ │ Kanban   │ │ PostgreSQL   │
-│ Profiles     │ │ Boards   │ │ (optional)   │
-│ (File System)│ │ (SQLite) │ │              │
-└──────────────┘ └──────────┘ └──────────────┘
-```
+Все настройки через `.env`:
 
-- **Frontend**: Vanilla JavaScript served as static files. Communicates with the backend via REST and WebSocket.
-- **Backend**: Express.js server with HTTP Basic Auth middleware, REST API routes, and a WebSocket server for real-time updates.
-- **Data Sources**: Reads Hermes profiles from the filesystem, Kanban boards from SQLite files, and optionally persists sessions to PostgreSQL.
+| Переменная | По умолчанию | Назначение |
+|---|---|---|
+| `PORT` | `3010` | Порт HTTP-сервера |
+| `HOST` | `0.0.0.0` | Адрес для bind |
+| `AUTH_USERNAME` | `admin` | Логин для Basic Auth |
+| `AUTH_PASSWORD` | — | Пароль (**обязательно задать**) |
+| `PROFILES_DIR` | `~/.hermes/profiles` | Где лежат профили Hermes |
+| `KANBAN_BOARDS_DIR` | `~/.hermes/kanban/boards` | Где лежат Kanban-доски |
+| `HERMES_BIN` | `hermes` | Путь к бинарнику Hermes CLI |
+| `DATABASE_URL` | — | PostgreSQL-строка для хранения сессий |
+| `FRONTEND_ORIGIN` | `http://localhost:3010` | CORS origin |
+| `TELEGRAM_TARGET` | `telegram` | Платформа для пересылки сообщений из чата |
+
+`PROFILES_DIR` и `KANBAN_BOARDS_DIR` определяются автоматически из `$HOME/.hermes/`. Переопределяйте, только если Hermes установлен в нестандартном месте.
 
 ---
 
-## Development
+## Аутентификация
 
-### Project Structure
+HTTP Basic Auth. Логин/пароль — из `AUTH_USERNAME` / `AUTH_PASSWORD`. Без пароля сервер не запустится.
+
+При развёртывании за nginx рекомендуем повесить Basic Auth на уровне nginx и убрать её из приложения (или оставить оба слоя — хуже не будет).
+
+---
+
+## API
+
+Dashboardium предоставляет REST API для фронтенда. Все эндпоинты требуют Basic Auth.
+
+| Метод | Путь | Назначение |
+|---|---|---|
+| `GET` | `/api/health` | Проверка живости (без авторизации) |
+| `GET` | `/api/profiles` | Список профилей |
+| `GET` | `/api/profiles/:profile/sessions` | Сессии профиля |
+| `POST` | `/api/profiles/:profile/sessions` | Создать сессию |
+| `PATCH` | `/api/profiles/:profile/sessions/:id` | Переименовать сессию |
+| `DELETE` | `/api/profiles/:profile/sessions/:id` | Удалить сессию |
+| `GET` | `/api/profiles/:profile/sessions/:id/messages` | История сообщений |
+| `POST` | `/api/chat/:profile` | Отправить сообщение в чат |
+| `POST` | `/api/optimize/:profile` | Оптимизация контекста |
+| `GET` | `/api/tasks/:board/:taskId` | Детали задачи |
+| `POST` | `/api/tasks/:board/:taskId/block` | Заблокировать задачу |
+| `POST` | `/api/tasks/:board/:taskId/unblock` | Разблокировать |
+| `POST` | `/api/tasks/:board/:taskId/reassign` | Переназначить |
+| `POST` | `/api/tasks/:board/:taskId/archive` | Архивировать |
+| `GET` | `/api/user-role` | Список watched-профилей |
+| `POST` | `/api/user-role` | Добавить в watched |
+| `DELETE` | `/api/user-role/:profile` | Убрать из watched |
+
+Полная OpenAPI-спецификация: [`docs/swagger.yaml`](docs/swagger.yaml).
+
+---
+
+## WebSocket
+
+Сервер поднимает WebSocket на том же порту (3010). Клиент подключается к `ws://host:3010`.
+
+**События от сервера:**
+
+| Событие | Когда | Данные |
+|---|---|---|
+| `profiles` | Каждые 10 секунд | Полный список профилей с usage, задачами, сессиями |
+| `chat_reply` | Пришёл ответ от Hermes | `{ profile, session_id, reply }` |
+| `task_update` | Изменился статус задачи | `{ board, taskId, status }` |
+
+**События от клиента:**
+
+| Событие | Назначение |
+|---|---|
+| `subscribe_profiles` | Запросить немедленную отправку `profiles` |
+
+Дельта-обновления: сервер сравнивает текущий список с предыдущим и шлёт `profiles` только если есть изменения. Нет изменений = нет трафика.
+
+---
+
+## Кэширование
+
+Бэкенд кэширует в памяти:
+
+| Что | TTL | Где инвалидируется |
+|---|---|---|
+| Список профилей | 10 секунд | При переименовании/удалении профиля |
+| Сессии профиля | 30 секунд | При создании/удалении сессии |
+| Задачи (Kanban) | 10 секунд | При block/unblock/reassign/archive |
+| Контекст (usage %) | 60 секунд | Только по TTL |
+
+Кэш сбрасывается принудительно при мутирующих операциях — данные всегда актуальны после действия пользователя.
+
+---
+
+## Структура проекта
 
 ```
 dashboardium/
 ├── backend/
-│   ├── server.js          # Express entry point
-│   ├── config.js          # Configuration (env vars, paths, limits)
-│   ├── db.js              # PostgreSQL pool and migrations
-│   ├── models.json        # Model context limits for usage %
-│   ├── routes/            # REST API route handlers
-│   │   ├── profiles.js    # Profile list, health, usage
-│   │   ├── sessions.js    # Session CRUD, profile rename/delete
-│   │   ├── chat.js        # Chat with profiles via Hermes CLI
-│   │   ├── tasks.js       # Kanban task details, block/unblock/reassign
-│   │   └── user-role.js   # Leader/subordinate role management
-│   ├── middleware/         # Auth, CORS, rate-limit, path-guard, audit
-│   ├── services/          # Business logic
-│   │   ├── hermes-cli.js  # Hermes CLI wrapper (sessions, chat, kanban)
-│   │   ├── cache.js       # Session/usage/profile caching
-│   │   ├── profiles.js    # Profile listing and model detection
-│   │   ├── sqlite.js      # Kanban board SQLite reader
-│   │   ├── pg-import.js   # Import sessions from SQLite to PostgreSQL
-│   │   └── websocket.js   # WebSocket server (real-time updates)
-│   └── package.json       # Backend dependencies
+│   ├── server.js          # Точка входа Express + WebSocket
+│   ├── config.js          # Конфигурация (env, пути, лимиты)
+│   ├── db.js              # PostgreSQL-пул и миграции
+│   ├── models.json        # Лимиты контекста моделей
+│   ├── routes/            # REST-обработчики
+│   │   ├── profiles.js    # Список профилей, health, usage
+│   │   ├── sessions.js    # CRUD сессий
+│   │   ├── chat.js        # Чат через Hermes CLI
+│   │   ├── tasks.js       # Kanban-задачи
+│   │   └── user-role.js   # Watched-профили
+│   ├── middleware/         # Auth, CORS, rate-limit, audit
+│   ├── services/           # Бизнес-логика
+│   │   ├── hermes-cli.js  # Обёртка над Hermes CLI
+│   │   ├── cache.js       # Кэш в памяти
+│   │   ├── profiles.js    # Список профилей
+│   │   ├── sqlite.js      # Чтение Kanban SQLite
+│   │   ├── pg-import.js   # Импорт сессий SQLite → PostgreSQL
+│   │   └── websocket.js   # WebSocket-сервер
+│   └── package.json
 ├── frontend/
-│   ├── public/            # Static assets
-│   │   ├── dashboard.js   # Main frontend logic (HTML+CSS+JS)
-│   │   └── icons/         # SVG icons (favicon, PWA)
-│   └── views/             # Frontend modules
-│       ├── index.html     # Entry point
-│       ├── api.js         # API client
-│       ├── render.js      # Profile card rendering
-│       ├── actions.js     # User actions (chat, optimize)
-│       ├── modal.js       # Modal dialogs
-│       ├── task-modal.js  # Task detail modal
-│       ├── drag-drop.js   # Drag-and-drop for leader cards
-│       ├── i18n.js        # Internationalization (RU/EN)
-│       ├── state.js       # Application state
-│       ├── config.js      # Frontend configuration
-│       └── utils.js       # Utility functions
-├── .githooks/pre-commit   # Checks that new features have tests
-├── .gitlab-ci.yml         # GitLab CI pipeline
-├── .env.example           # Environment variable template
-├── setup.js               # gbrain auto-configuration
-├── package.json           # Root package.json (start / test scripts)
-└── README.md              # This file
+│   ├── public/            # Статика (dashboard.js, иконки)
+│   └── views/             # Модули (api, render, modal, i18n, state...)
+├── docs/
+│   └── swagger.yaml       # OpenAPI 3.0 спецификация
+├── .env.example           # Шаблон конфигурации
+├── .editorconfig          # Настройки редактора
+├── .nvmrc                 # Версия Node.js для nvm
+├── eslint.config.mjs      # Конфиг ESLint
+├── .prettierrc            # Конфиг Prettier
+├── package.json           # Скрипты запуска и тестов
+└── README.md
 ```
 
-### Running in Development
+---
+
+## Разработка
 
 ```bash
-# Start with auto-reload (requires nodemon)
+# Запуск с авто-перезагрузкой
 npx nodemon backend/server.js
+
+# Тесты
+npm test
+
+# Линтер
+npm run lint
+
+# Форматтер
+npm run format
 ```
 
-### Running Tests
+Pre-commit хук (`.githooks/pre-commit`) проверяет, что новые фичи покрыты тестами. Включить:
 
 ```bash
-npm test
+git config core.hooksPath .githooks
 ```
 
 ---
 
-## License
+## Деплой
 
-MIT License — see [LICENSE](LICENSE) for details.
+### systemd
+
+```ini
+# /etc/systemd/system/dashboardium.service
+[Unit]
+Description=Dashboardium
+After=network.target
+
+[Service]
+Type=simple
+User=hermes
+WorkingDirectory=/opt/dashboardium
+EnvironmentFile=/opt/dashboardium/.env
+ExecStart=/usr/bin/node backend/server.js
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now dashboardium
+```
+
+### За nginx
+
+```nginx
+server {
+    listen 80;
+    server_name dashboardium.example.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:3010;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+}
+```
+
+`proxy_set_header Upgrade/Connection` обязательны — без них WebSocket не поднимется.
 
 ---
 
-## Contact
+## Решение проблем
 
-Created by [CTAC TEPEXOB](https://t.me/zcat7449) — feel free to reach out on Telegram.
+### «Сервер не запускается»
+
+```bash
+# Проверьте версию Node.js
+node -v  # должно быть 18+
+
+# Проверьте, что задан AUTH_PASSWORD
+grep AUTH_PASSWORD .env
+
+# Проверьте, что порт не занят
+lsof -i :3010
+```
+
+### «Профили не отображаются»
+
+Dashboardium читает `~/.hermes/profiles/`. Проверьте, что Hermes установлен и профили созданы:
+
+```bash
+ls ~/.hermes/profiles/
+hermes profile list
+```
+
+### «Чат не отвечает»
+
+Чат работает через `hermes chat` CLI. Проверьте, что CLI работает:
+
+```bash
+hermes chat --profile orchestrator --message "ping"
+```
+
+Если CLI отвечает, а Dashboardium нет — смотрите логи:
+
+```bash
+journalctl -u dashboardium -f
+```
+
+### «WebSocket не подключается»
+
+1. Проверьте, что nginx (если используется) пробрасывает заголовки `Upgrade` и `Connection`
+2. Проверьте, что Basic Auth передаётся при подключении WebSocket (браузерный `new WebSocket()` не поддерживает кастомные заголовки — Dashboardium передаёт креды через `?token=` в URL)
+
+### «Пустые ошибки в консоли браузера»
+
+Браузерный WebSocket API не поддерживает кастомные заголовки. При разрыве соединения браузер может логировать пустые `error`-события — это нормально, на работу не влияет.
 
 ---
 
-*Built for [Hermes Agent](https://hermes-agent.nousresearch.com) by Nous Research.*
+## gbrain (опционально)
+
+[gbrain](https://github.com/nousresearch/gbrain) — персональная база знаний. Если gbrain запущен, Dashboardium может показывать релевантный контекст из прошлых задач.
+
+```bash
+# Проверить, запущен ли gbrain
+curl -s http://localhost:7333/mcp/health
+
+# Авто-настройка для всех профилей
+node setup.js
+```
+
+---
+
+## Лицензия
+
+MIT — [LICENSE](LICENSE)
+
+---
+
+Создано [CTAC TEPEXOB](https://t.me/zcat7449) для [Hermes Agent](https://hermes-agent.nousresearch.com) by Nous Research.
