@@ -22,7 +22,16 @@ const USER_ROLE_PATH = path.join(REAL_HOME, '.hermes', 'user_role.json');
 const AUTH_USERNAME = process.env.AUTH_USERNAME || '';
 const AUTH_PASSWORD = process.env.AUTH_PASSWORD || '';
 
-const { context_limits: MODEL_CONTEXT_LIMITS, default_context_limit: DEFAULT_CONTEXT_LIMIT } = require('./models.json');
+let MODEL_CONTEXT_LIMITS;
+let DEFAULT_CONTEXT_LIMIT;
+try {
+  ({ context_limits: MODEL_CONTEXT_LIMITS, default_context_limit: DEFAULT_CONTEXT_LIMIT } = require('./models.json'));
+} catch (err) {
+  // eslint-disable-next-line no-console
+  console.warn('[config] models.json not found or invalid, using fallback context limits:', err.message);
+  MODEL_CONTEXT_LIMITS = {};
+  DEFAULT_CONTEXT_LIMIT = 131072;
+}
 
 const SESSION_ID_RE = /^[a-zA-Z0-9_:.-]+$/;
 const PROFILE_NAME_RE = /^[a-zA-Z0-9_-]+$/;
