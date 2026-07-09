@@ -305,9 +305,15 @@
     if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
 
     try {
-      ws = new WebSocket(C.WS_URL);
+      // Build WS URL with auth token (server requires ?token=base64(user:pass))
+      let wsUrl = C.WS_URL;
+      if (C.AUTH) {
+        wsUrl += (wsUrl.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(C.AUTH);
+      }
+      ws = new WebSocket(wsUrl);
     } catch (e) {
       console.warn('ws: failed to create WebSocket, falling back to REST polling', e);
+      getRender().setConn('error', 'reconnecting · WS failed · REST fallback');
       startRestPolling();
       return;
     }
@@ -334,6 +340,7 @@
     ws.onclose = (event) => {
       console.log('ws: disconnected', event.code, event.reason);
       ws = null;
+      getRender().setConn('error', 'reconnecting…');
       wsScheduleReconnect();
     };
 
@@ -373,6 +380,7 @@
     const delay = C.WS_RECONNECT_DELAYS[Math.min(wsReconnectAttempt, C.WS_RECONNECT_DELAYS.length - 1)];
     wsReconnectAttempt++;
     console.log('ws: reconnecting in ' + delay + 'ms (attempt ' + wsReconnectAttempt + ')');
+    getRender().setConn('error', 'reconnecting · ' + wsReconnectAttempt + ' · ' + delay + 'ms');
     wsReconnectTimer = setTimeout(() => {
       wsConnect();
     }, delay);

@@ -33,6 +33,7 @@
   D.dragOverSlot = null;
   // loaded session marker to avoid refetching
   D.loadedSessions = {};
+  D._lastMsgCount = {}; // { 'profile:sessionId': message_count }
   // Modal state
   D.profileModalOpen = false;
   D.profileModalFilter = '';
