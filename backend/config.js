@@ -5,7 +5,7 @@ const REAL_HOME = process.env.HOME || homedir();
 
 const PROFILES_DIR = process.env.PROFILES_DIR || path.join(REAL_HOME, '.hermes', 'profiles');
 const KANBAN_BOARDS_DIR = process.env.KANBAN_BOARDS_DIR || path.join(REAL_HOME, '.hermes', 'kanban', 'boards');
-const PORT = parseInt(process.env.PORT || '3002', 10);
+const PORT = parseInt(process.env.PORT || '3010', 10);
 const HOST = process.env.HOST || '0.0.0.0';
 const FRONTEND_DIR = process.env.FRONTEND_DIR || path.join(__dirname, '..', 'frontend');
 const FRONTEND_ORIGIN_RAW = process.env.FRONTEND_ORIGIN || 'http://localhost:3000';
