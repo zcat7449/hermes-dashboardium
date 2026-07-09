@@ -221,9 +221,15 @@
       if (empty) empty.remove();
       const div = document.createElement('div');
       div.className = 'msg-' + role;
-      div.textContent = (role === 'you' ? t('msg_you') + ' ' : role === 'typing' ? '' : t('msg_bot') + ' ') + text;
+      if (role === 'typing') {
+        div.innerHTML = '⟳ <span class="typing-text">модель думает</span><span class="timer">0с</span>';
+        div._startTime = Date.now();
+      } else {
+        div.textContent = (role === 'you' ? t('msg_you') + ' ' : t('msg_bot') + ' ') + text;
+      }
+      const isNearBottom = (logEl.scrollHeight - logEl.scrollTop - logEl.clientHeight) < 2;
       logEl.appendChild(div);
-      logEl.scrollTop = logEl.scrollHeight;
+      if (isNearBottom) logEl.scrollTop = logEl.scrollHeight;
     }
   }
 
@@ -250,7 +256,9 @@
       logEl.innerHTML = log.length === 0
         ? '<div class="empty">' + t('dialog_empty') + '</div>'
         : log.map(m => `<div class="msg-${m.role}">${m.role === 'you' ? t('msg_you') : t('msg_bot')} ${U.esc(m.text)}</div>`).join('');
-      logEl.scrollTop = logEl.scrollHeight;
+      // Scroll only if user was already at the bottom.
+      const isNearBottom = (logEl.scrollHeight - logEl.scrollTop - logEl.clientHeight) < 2;
+      if (isNearBottom) logEl.scrollTop = logEl.scrollHeight;
     }
   }
 

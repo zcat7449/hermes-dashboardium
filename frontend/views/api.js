@@ -489,6 +489,12 @@
 
       case 'chat_response': {
         const { profile, response, session_id, new_session } = msg;
+        // Remove typing indicator + stop timer
+        getRender().removeLastChat(profile, 'typing');
+        if (D._typingTimers && D._typingTimers[profile]) {
+          clearInterval(D._typingTimers[profile]);
+          delete D._typingTimers[profile];
+        }
         getRender().appendChat(profile, 'bot', String(response || ''));
         if (new_session && session_id) {
           D.activeSessionMap[profile] = session_id;
@@ -514,6 +520,12 @@
       }
 
       case 'chat_error': {
+        // Remove typing indicator + stop timer
+        getRender().removeLastChat(msg.profile, 'typing');
+        if (D._typingTimers && D._typingTimers[msg.profile]) {
+          clearInterval(D._typingTimers[msg.profile]);
+          delete D._typingTimers[msg.profile];
+        }
         getRender().appendChat(msg.profile, 'bot', '⚠ chat error: ' + (msg.error || 'unknown'));
         break;
       }

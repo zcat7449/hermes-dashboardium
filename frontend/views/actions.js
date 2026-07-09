@@ -60,17 +60,65 @@
     }
   }
 
+  // Track in-flight sends per profile to prevent double-clicks / duplicate sends.
+  D._sending = D._sending || new Set();
+  D._typingTimers = D._typingTimers || {};
+
+  function startTypingTimer(name) {
+    stopTypingTimer(name);
+    const update = () => {
+      const logEl = D.els.topGrid.querySelector(`[data-chat-log="${CSS.escape(name)}"]`);
+      if (!logEl) { stopTypingTimer(name); return; }
+      const typingEl = logEl.querySelector('.msg-typing');
+      if (!typingEl) { stopTypingTimer(name); return; }
+      const elapsed = Math.floor((Date.now() - (typingEl._startTime || Date.now())) / 1000);
+      const timerEl = typingEl.querySelector('.timer');
+      if (timerEl) {
+        if (elapsed < 60) timerEl.textContent = elapsed + 'с';
+        else timerEl.textContent = Math.floor(elapsed / 60) + 'м ' + (elapsed % 60) + 'с';
+      }
+      const textEl = typingEl.querySelector('.typing-text');
+      if (textEl && elapsed >= 30) textEl.textContent = 'модель думает (долго)';
+      if (elapsed >= 120) {
+        R.removeLastChat(name, 'typing');
+        R.appendChat(name, 'bot', '⚠ модель не ответила за 2 минуты — возможно профиль занят. Попробуйте ещё раз.');
+        stopTypingTimer(name);
+      }
+    };
+    D._typingTimers[name] = setInterval(update, 1000);
+  }
+
+  function stopTypingTimer(name) {
+    if (D._typingTimers[name]) {
+      clearInterval(D._typingTimers[name]);
+      delete D._typingTimers[name];
+    }
+  }
+
   async function doSend(name, input) {
+    if (D._sending.has(name)) return;
     const text = (input.value || '').trim();
     if (!text) return;
+    D._sending.add(name);
+    input.disabled = true;
     input.value = '';
     R.appendChat(name, 'you', text);
-    // Show typing indicator
+    // Show typing indicator with live timer
     R.appendChat(name, 'typing', '…');
+    startTypingTimer(name);
     const sid = D.activeSessionMap[name];
     // Try WebSocket first
-    if (A.wsSend({ type: 'chat', profile: name, message: text, session_id: sid || undefined })) {
+    let wsOk = false;
+    try {
+      wsOk = A.wsSend({ type: 'chat', profile: name, message: text, session_id: sid || undefined });
+    } catch (e) {
+      console.warn('wsSend error', e);
+    }
+    if (wsOk) {
       // Response will come via WS onmessage → handleWsMessage
+      // Keep typing indicator + timer running until WS response arrives
+      D._sending.delete(name);
+      input.disabled = false;
       return;
     }
     // Fallback to REST
@@ -78,6 +126,7 @@
       const r = await A.postChat(name, text, sid);
       // Remove typing indicator
       R.removeLastChat(name, 'typing');
+      stopTypingTimer(name);
       const reply = (r && (r.reply || r.message || r.response)) || JSON.stringify(r);
       R.appendChat(name, 'bot', String(reply));
       const newSid = r && r.session_id;
@@ -102,7 +151,13 @@
         }
       }
     } catch (e) {
+      R.removeLastChat(name, 'typing');
+      stopTypingTimer(name);
       R.appendChat(name, 'bot', '⚠ chat error: ' + e.message);
+    } finally {
+      D._sending.delete(name);
+      input.disabled = false;
+      input.focus();
     }
   }
 

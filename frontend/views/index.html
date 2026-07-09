@@ -544,6 +544,9 @@ main {
 }
 .chat .log .msg-you { color: var(--green); }
 .chat .log .msg-bot { color: var(--text); }
+.chat .log .msg-typing { color: var(--yellow); font-style: italic; animation: pulse 1.2s ease-in-out infinite; }
+.chat .log .msg-typing .timer { color: var(--gray); font-style: normal; margin-left: 4px; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 .chat .log .empty { color: rgba(224,224,224,0.35); font-style: italic; }
 .chat .row {
   display: flex; gap: 4px;
@@ -1055,12 +1058,12 @@ main {
 <script src="/views/config.js?v=6"></script>
 <script src="/views/utils.js?v=5"></script>
 <script src="/views/state.js?v=5"></script>
-<script src="/views/render.js?v=8"></script>
-<script src="/views/api.js?v=6"></script>
+<script src="/views/render.js?v=9"></script>
+<script src="/views/api.js?v=7"></script>
 <script src="/views/drag-drop.js?v=4"></script>
 <script src="/views/modal.js?v=4"></script>
 <script src="/views/task-modal.js?v=3"></script>
-<script src="/views/actions.js?v=4"></script>
+<script src="/views/actions.js?v=5"></script>
 
 </body>
 </html>
