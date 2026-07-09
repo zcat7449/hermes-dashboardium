@@ -5,7 +5,7 @@
 
 **Панель управления профилями Hermes Agent** — мониторинг, чат и Kanban-задачи в реальном времени.
 
-![Dashboardium Screenshot](screenshot.png)
+![Dashboardium Screenshot](screenshot.png?v=2)
 
 ## Что это
 
