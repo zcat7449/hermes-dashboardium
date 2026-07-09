@@ -235,7 +235,7 @@
       const sid = t.dataset.sid;
       D.activeSessionMap[name] = sid;
       A.loadSessionMessages(name, sid).then(() => R.renderLog(name));
-      R.renderAll();
+      R.renderSessionPanel(name);
     } else if (action === 'sess-rename') {
       e.stopPropagation();
       const name = t.dataset.name;

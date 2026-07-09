@@ -262,6 +262,42 @@
     }
   }
 
+  // Update only the session list for a specific profile (no full re-render).
+  function renderSessionPanel(name) {
+    const card = D.els.topGrid.querySelector(`.card[data-name="${CSS.escape(name)}"]`);
+    if (!card) return;
+    // Update session list
+    const listContainer = card.querySelector(`[data-session-list="${CSS.escape(name)}"]`);
+    if (listContainer) {
+      const activeId = D.activeSessionMap[name] || null;
+      const items = (D.sessionsMap[name] || []).map(s => {
+        const isActive = s.id === activeId;
+        const display = sessionDisplayName(s);
+        const source = s.source ? `<span class="sess-source">${U.esc(s.source)}</span>` : '';
+        const count = (s.message_count != null && s.message_count > 0) ? `<span class="sess-msg-count">${s.message_count}</span>` : '';
+        return `<div class="session-item ${isActive ? 'active' : ''}" data-action="sess-select" data-name="${U.esc(name)}" data-sid="${U.esc(s.id)}" title="${U.esc(s.id)}">
+          <span class="sess-name">${U.esc(display)}</span>
+          ${count}
+          ${source}
+          <button type="button" data-action="sess-rename" data-name="${U.esc(name)}" data-sid="${U.esc(s.id)}" title="${t('rename')}">✎</button>
+          <button type="button" class="sess-delete" data-action="sess-delete" data-name="${U.esc(name)}" data-sid="${U.esc(s.id)}" title="${t('delete')}">✕</button>
+        </div>`;
+      }).join('');
+      listContainer.innerHTML = items;
+    }
+    // Update chat label
+    const activeSid = D.activeSessionMap[name];
+    const activeLabel = activeSid
+      ? sessionDisplayName((D.sessionsMap[name] || []).find(x => x.id === activeSid) || { id: activeSid })
+      : t('new_session_label');
+    const labelEls = card.querySelectorAll('[style*="uppercase"]');
+    labelEls.forEach(el => {
+      if (el.textContent.startsWith(t('chat').substring(0, 3))) {
+        el.textContent = t('chat') + ' · ' + activeLabel;
+      }
+    });
+  }
+
   function renderAll() {
     renderTop();
     renderBottom();
@@ -355,6 +391,7 @@
     renderAddDropdown,
     appendChat,
     renderLog,
+    renderSessionPanel,
     setConn,
     updateProfileData,
     sessionDisplayName,
