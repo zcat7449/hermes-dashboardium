@@ -24,6 +24,18 @@ function readModel(configPath) {
   }
 }
 
+// Profiles with these prefixes/names are internal — not shown in dashboard.
+const HIDDEN_PREFIXES = ['p', 'auditor-'];
+const HIDDEN_NAMES = ['auditor', 'worker', 'dashboardium'];
+
+function isHiddenProfile(name) {
+  if (HIDDEN_NAMES.includes(name)) return true;
+  for (const p of HIDDEN_PREFIXES) {
+    if (name.startsWith(p) && name.length > p.length) return true;
+  }
+  return false;
+}
+
 function listProfiles(profileCache) {
   const now = Date.now();
   if (profileCache.data && now - profileCache.ts < profileCache.ttl) {
@@ -34,6 +46,7 @@ function listProfiles(profileCache) {
     entries = fs.readdirSync(PROFILES_DIR, { withFileTypes: true })
       .filter(d => d.isDirectory())
       .map(d => d.name)
+      .filter(name => !isHiddenProfile(name))
       .sort();
   } catch (err) {
     log.error('failed to read profiles dir', {error: err.message || String(err)});
