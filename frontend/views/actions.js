@@ -10,9 +10,13 @@
   const U = window.Dashboard.Utils;
 
   // ---- Filter + Dropdown wiring ----
+  let filterDebounceTimer = null;
   D.els.filterInput.addEventListener('input', (e) => {
-    D.filterText = (e.target.value || '').toLowerCase().trim();
-    R.renderAll();
+    clearTimeout(filterDebounceTimer);
+    filterDebounceTimer = setTimeout(() => {
+      D.filterText = (e.target.value || '').toLowerCase().trim();
+      R.renderAll();
+    }, 300);
   });
 
   document.addEventListener('click', (e) => {

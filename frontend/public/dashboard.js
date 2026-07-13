@@ -18,10 +18,10 @@ window.addEventListener('unhandledrejection', function(e) {
   --bg: #1a1a2e;
   --card: #16213e;
   --text: #e0e0e0;
-  --accent: #0f3460;
+  --accent: #1a4a8a;
   --green: #4ecca3;
   --yellow: #e8c547;
-  --gray: #6c757d;
+  --gray: #8a94a3;
   --red: #e74c3c;
   --border: rgba(255,255,255,0.08);
   --shadow: 0 4px 16px rgba(0,0,0,0.35);
@@ -489,6 +489,18 @@ main {
 .btn.optimize { background: rgba(78,204,163,0.18); color: var(--green); }
 .btn.optimize:hover { background: rgba(78,204,163,0.3); }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn:focus-visible,
+.chat button:focus-visible,
+.sess-new:focus-visible,
+.filter-bar input:focus-visible,
+.add-leader-btn:focus-visible,
+.remove-leader-btn:focus-visible,
+.collapse-chat-btn:focus-visible,
+.task-view-btn:focus-visible,
+.assign-btn:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+}
 .chat {
   display: flex;
   flex-direction: column;
@@ -791,7 +803,7 @@ main {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 10000;
   animation: modalFadeIn 0.2s ease;
 }
 @keyframes modalFadeIn {
@@ -997,6 +1009,9 @@ main {
   </div>
 
 </main>
+
+<!-- Scroll-to-top button -->
+<button id="scrollTopBtn" style="display:none; position:fixed; bottom:24px; right:24px; width:40px; height:40px; border-radius:50%; background:var(--accent); color:var(--text); border:none; font-size:20px; cursor:pointer; z-index:500; box-shadow:0 4px 12px rgba(0,0,0,0.4);" aria-label="Наверх" title="Наверх">↑</button>
 
 <!-- Login overlay -->
 <div id="loginOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center;">

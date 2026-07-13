@@ -115,4 +115,30 @@
       I18n.setLang(e.target.value);
     });
   }
+
+  // ---- Scroll-to-top button ----
+  const scrollTopBtn = document.getElementById('scrollTopBtn');
+  if (scrollTopBtn) {
+    window.addEventListener('scroll', () => {
+      scrollTopBtn.style.display = window.scrollY > 300 ? 'block' : 'none';
+    });
+    scrollTopBtn.addEventListener('click', () => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  }
+
+  // ---- Escape key closes modals ----
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      const profileModal = document.querySelector('.profile-modal-overlay');
+      const taskModal = document.querySelector('.task-modal-overlay');
+      if (profileModal) {
+        profileModal.remove();
+        window.Dashboard.Data.profileModalOpen = false;
+      }
+      if (taskModal) {
+        taskModal.remove();
+      }
+    }
+  });
 })();

@@ -74,6 +74,9 @@
       });
     });
     D.userRoleEntries = entries;
+    // Show saving indicator
+    const connEl = document.getElementById('connText');
+    if (connEl) connEl.textContent = 'saving…';
     try {
       await fetchJson(C.API_BASE + '/api/user-role', {
         method: 'POST',
@@ -82,20 +85,28 @@
       });
     } catch (e) {
       console.warn('saveUserRole error', e);
+    } finally {
+      if (connEl) connEl.textContent = 'live · API';
     }
   }
 
   // ---- Profiles / Chat / Optimize ----
   async function loadProfiles() {
-    const data = await fetchJson(C.API_BASE + '/api/profiles');
-    const list = (data && (data.profiles || data)) || [];
-    if (!Array.isArray(list)) throw new Error('Bad payload');
-    const map = {};
-    for (const raw of list) {
-      const p = U.normProfile(raw);
-      if (p.name) map[p.name] = p;
+    try {
+      const data = await fetchJson(C.API_BASE + '/api/profiles');
+      const list = (data && (data.profiles || data)) || [];
+      if (!Array.isArray(list)) throw new Error('Bad payload');
+      const map = {};
+      for (const raw of list) {
+        const p = U.normProfile(raw);
+        if (p.name) map[p.name] = p;
+      }
+      return map;
+    } catch (e) {
+      console.warn('loadProfiles error', e);
+      // Return empty map on error — UI shows empty state, not crash
+      return {};
     }
-    return map;
   }
 
   async function postOptimize(name) {

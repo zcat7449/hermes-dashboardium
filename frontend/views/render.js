@@ -91,15 +91,15 @@
         <div class="name">${U.esc(p.name)}</div>
         <div class="status-dot ${dotClass}" title="${U.esc(status)}"></div>
         <div class="head-spacer"></div>
-        <button type="button" class="collapse-chat-btn" data-action="toggle-chat" data-name="${U.esc(p.name)}" title="${t('collapse_chat')}">▾</button>
-        <button type="button" class="remove-leader-btn" data-action="remove-leader" data-name="${U.esc(p.name)}" title="${t('remove_leader')}">✕</button>
+        <button type="button" class="collapse-chat-btn" data-action="toggle-chat" data-name="${U.esc(p.name)}" title="${t('collapse_chat')}" aria-label="${t('collapse_chat')}">▾</button>
+        <button type="button" class="remove-leader-btn" data-action="remove-leader" data-name="${U.esc(p.name)}" title="${t('remove_leader')}" aria-label="${t('remove_leader')}">✕</button>
       </div>
       <div class="model">${U.esc(modelLine)}</div>
       ${task}
       ${timer}
       ${queueHtml}
       <div class="actions">
-        <button class="btn optimize" data-action="optimize" data-name="${U.esc(p.name)}" ${D.optimizing.has(p.name) ? 'disabled' : ''}>
+        <button class="btn optimize" data-action="optimize" data-name="${U.esc(p.name)}" ${D.optimizing.has(p.name) ? 'disabled' : ''} aria-label="${t('optimize')}">
           ${D.optimizing.has(p.name) ? t('optimizing') : t('optimize')}
         </button>
       </div>
