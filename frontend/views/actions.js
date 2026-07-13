@@ -133,7 +133,7 @@
     try {
       wsOk = A.wsSend({ type: 'chat', profile: name, message: text, session_id: sid || undefined });
     } catch (e) {
-      console.warn('wsSend error', e);
+      U.debugWarn('wsSend error', e);
     }
     if (wsOk) {
       // Response will come via WS onmessage → handleWsMessage

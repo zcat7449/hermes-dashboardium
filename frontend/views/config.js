@@ -99,7 +99,9 @@
         R.renderAll();
         A.wsConnect();
       } catch (e) {
-        console.warn('boot after login error', e);
+        if (window.Dashboard && window.Dashboard.Utils && window.Dashboard.Utils.debugWarn) {
+          window.Dashboard.Utils.debugWarn('boot after login error', e);
+        }
         // Fallback: reload
         location.reload();
       }
@@ -166,7 +168,9 @@
         const data = await r.json();
         if (lastVersion && data.version && data.version !== lastVersion) {
           // Deploy detected — reload to pick up new code
-          console.log('[auto-reload] new version detected:', data.version, '(was:', lastVersion + ')');
+          if (window.Dashboard && window.Dashboard.Utils && window.Dashboard.Utils.debugLog) {
+            window.Dashboard.Utils.debugLog('[auto-reload] new version detected:', data.version, '(was:', lastVersion + ')');
+          }
           sessionStorage.setItem('dashboardium_version', data.version);
           location.reload();
         } else if (data.version) {

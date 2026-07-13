@@ -25,10 +25,10 @@
       : C.LEADER_SLOTS - D.leaders.filter(Boolean).length;
     const selectedCount = D.profileModalSelected.length;
 
-    const title = isWatched ? 'Добавить профили для наблюдения' : 'Выберите профили';
+    const title = isWatched ? t('add_watched') : t('select_profiles');
 
     const listHtml = filtered.length === 0
-      ? '<div class="profile-modal-empty">' + (D.profileModalFilter ? 'ничего не найдено' : 'все профили уже добавлены') + '</div>'
+      ? '<div class="profile-modal-empty">' + (D.profileModalFilter ? t('no_profiles_filter') : t('all_profiles_added')) + '</div>'
       : filtered.map(n => {
           const p = D.profilesByName[n] || {};
           const status = p.task_status || 'idle';

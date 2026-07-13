@@ -47,7 +47,7 @@
         .sort((a, b) => a.order - b.order);
       D.watched = watchedEntries.map(e => e.profile).slice(0, D.MAX_WATCHED);
     } catch (e) {
-      console.warn('loadUserRole error, using defaults', e);
+      U.debugWarn('loadUserRole error, using defaults', e);
       D.leaders = ['orchestrator', 'rechelok', 'aitrainer', null];
       D.watched = [];
     }
@@ -84,7 +84,7 @@
         body: JSON.stringify({ entries }),
       });
     } catch (e) {
-      console.warn('saveUserRole error', e);
+      U.debugWarn('saveUserRole error', e);
     } finally {
       if (connEl) connEl.textContent = 'live · API';
     }
@@ -103,7 +103,7 @@
       }
       return map;
     } catch (e) {
-      console.warn('loadProfiles error', e);
+      U.debugWarn('loadProfiles error', e);
       // Return empty map on error — UI shows empty state, not crash
       return {};
     }
@@ -266,7 +266,7 @@
         if (existing.length > 100) D.chatLog[name] = existing.slice(-100);
       }
     } catch (e) {
-      console.warn('load messages error', e);
+      U.debugWarn('load messages error', e);
     }
   }
 
@@ -364,7 +364,7 @@
       }
       ws = new WebSocket(wsUrl);
     } catch (e) {
-      console.warn('ws: failed to create WebSocket, falling back to REST polling', e);
+      U.debugWarn('ws: failed to create WebSocket, falling back to REST polling', e);
       getRender().setConn('error', 'reconnecting · WS failed · REST fallback');
       startRestPolling();
       return;
@@ -541,7 +541,7 @@
               }
               getRender().renderSessionPanelAll();
             })
-            .catch(e => console.warn('sessions refresh error', e))
+            .catch(e => U.debugWarn('sessions refresh error', e))
             .finally(() => { D._sessionsRefreshInFlight = false; });
         }
 
@@ -637,7 +637,7 @@
         break;
 
       case 'error':
-        console.warn('ws: server error', msg.error);
+        U.debugWarn('ws: server error', msg.error);
         break;
     }
   }

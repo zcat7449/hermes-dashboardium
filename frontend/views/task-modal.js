@@ -139,7 +139,7 @@
       const data = await A.fetchTaskDetails(board, taskId);
       renderTaskModal(data);
     } catch (e) {
-      console.warn('task modal error', e);
+      U.debugWarn('task modal error', e);
       const overlay = document.createElement('div');
       overlay.className = 'task-modal-overlay';
       overlay.innerHTML = `<div class="task-modal">

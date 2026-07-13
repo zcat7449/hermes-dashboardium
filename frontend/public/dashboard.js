@@ -7,10 +7,10 @@
 <script>
 // Global error/rejection logger for diagnostics
 window.addEventListener('error', function(e) {
-  console.log('GLOBAL_ERROR', e.message, e.filename, e.lineno, e.colno, e.error && e.error.stack);
+  console.error('GLOBAL_ERROR', e.message, e.filename, e.lineno, e.colno, e.error && e.error.stack);
 });
 window.addEventListener('unhandledrejection', function(e) {
-  console.log('UNHANDLED_REJECTION', e.reason && e.reason.message, e.reason && e.reason.stack);
+  console.error('UNHANDLED_REJECTION', e.reason && e.reason.message, e.reason && e.reason.stack);
 });
 </script>
 <style>
@@ -28,6 +28,15 @@ window.addEventListener('unhandledrejection', function(e) {
   --radius: 10px;
   --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: "SF Mono", Menlo, Consolas, "Courier New", monospace;
+  /* P3-5 fix: standardized z-index scale. Use these instead of magic numbers. */
+  --z-base: 1;
+  --z-header: 10;
+  --z-fab: 500;
+  --z-dropdown: 8000;
+  --z-modal: 9000;
+  --z-task-modal: 9100;
+  --z-toast: 9500;
+  --z-login: 9999;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body {
@@ -52,13 +61,14 @@ header {
   border-bottom: 1px solid var(--border);
   position: sticky; top: 0;
   backdrop-filter: blur(8px);
-  z-index: 10;
+  z-index: var(--z-header);
 }
 header h1 {
   font-size: 18px;
   font-weight: 600;
   letter-spacing: 0.3px;
 }
+.profile-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: var(--z-modal);
 header h1 .dot {
   display: inline-block;
   width: 10px; height: 10px;
@@ -707,7 +717,7 @@ main {
 /* Task modal */
 .task-modal-overlay {
   position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-  background: rgba(0,0,0,0.75); z-index: 9999;
+  background: rgba(0,0,0,0.75); z-index: var(--z-modal);
   display: flex; align-items: center; justify-content: center;
   padding: 20px;
 }
@@ -804,7 +814,7 @@ main {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 10000;
+  z-index: var(--z-task-modal);
   animation: modalFadeIn 0.2s ease;
 }
 @keyframes modalFadeIn {
@@ -1012,10 +1022,10 @@ main {
 </main>
 
 <!-- Scroll-to-top button -->
-<button id="scrollTopBtn" style="display:none; position:fixed; bottom:24px; right:24px; width:40px; height:40px; border-radius:50%; background:var(--accent); color:var(--text); border:none; font-size:20px; cursor:pointer; z-index:500; box-shadow:0 4px 12px rgba(0,0,0,0.4);" aria-label="Наверх" title="Наверх">↑</button>
+<button id="scrollTopBtn" style="display:none; position:fixed; bottom:24px; right:24px; width:40px; height:40px; border-radius:50%; background:var(--accent); color:var(--text); border:none; font-size:20px; cursor:pointer; z-index:var(--z-fab); box-shadow:0 4px 12px rgba(0,0,0,0.4);" aria-label="Наверх" title="Наверх">↑</button>
 
 <!-- Login overlay -->
-<div id="loginOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center;">
+<div id="loginOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:var(--z-login); align-items:center; justify-content:center;">
   <div style="background:var(--card); padding:32px; border-radius:var(--radius); box-shadow:var(--shadow); width:320px; text-align:center;">
     <h2 style="margin:0 0 20px; color:var(--text); font-size:18px;">Dashboardium</h2>
     <p style="color:rgba(224,224,224,0.6); font-size:13px; margin:0 0 16px;">Введите логин и пароль</p>
