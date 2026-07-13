@@ -63,13 +63,55 @@
 
     document.body.appendChild(overlay);
 
-    const searchInput = document.getElementById('pmSearchInput');
-    if (searchInput) {
-      searchInput.focus();
+    // P1 fix: update ONLY the list (not the whole overlay) on filter input.
+    // Previously each keystroke re-rendered the entire overlay, destroying
+    // the search input and stealing focus. Now: input listener stays alive,
+    // list re-renders in place, focus is preserved naturally.
+    let searchInput = document.getElementById('pmSearchInput');
+    if (searchInput && !searchInput.dataset.wired) {
+      searchInput.dataset.wired = '1';
       searchInput.addEventListener('input', (e) => {
         D.profileModalFilter = e.target.value;
-        renderProfileModal();
+        // Update only the list, not the whole overlay (preserves focus)
+        const list = document.querySelector('.profile-modal-list');
+        if (list) {
+          const allNames = Object.keys(D.profilesByName).sort();
+          const leaderSet = new Set(D.leaders.filter(Boolean));
+          const watchedSet = new Set(D.watched);
+          const isWatched = D.profileModalTarget === 'watched';
+          const candidates = isWatched
+            ? allNames.filter(n => !leaderSet.has(n) && !watchedSet.has(n))
+            : allNames.filter(n => !leaderSet.has(n));
+          const filtered = D.profileModalFilter
+            ? candidates.filter(n => n.toLowerCase().includes(D.profileModalFilter.toLowerCase()))
+            : candidates;
+          list.innerHTML = filtered.length === 0
+            ? '<div class="profile-modal-empty">' + (D.profileModalFilter ? 'ничего не найдено' : 'все профили уже добавлены') + '</div>'
+            : filtered.map(n => {
+                const p = D.profilesByName[n] || {};
+                const status = p.task_status || 'idle';
+                const model = p.model || '';
+                const isSelected = D.profileModalSelected.includes(n);
+                return `<div class="profile-modal-item ${isSelected ? 'selected' : ''}" data-action="pm-toggle" data-pm-name="${U.esc(n)}">
+                  <span class="pm-check">${isSelected ? '✓' : ''}</span>
+                  <span class="pm-dot ${U.esc(status)}"></span>
+                  <span class="pm-name">${U.esc(n)}</span>
+                  ${model ? `<span class="pm-model">${U.esc(model)}</span>` : ''}
+                </div>`;
+              }).join('');
+        }
+        // Update the counter without destroying the header
+        const counter = document.querySelector('.pm-counter');
+        if (counter) {
+          const remaining = isWatched
+            ? D.MAX_WATCHED - D.watched.length
+            : C.LEADER_SLOTS - D.leaders.filter(Boolean).length;
+          counter.textContent = D.profileModalSelected.length + '/' + remaining;
+        }
       });
+    }
+    if (searchInput && document.activeElement !== searchInput) {
+      searchInput.focus();
     }
 
     overlay.addEventListener('click', (e) => {
@@ -151,6 +193,12 @@
 
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && D.profileModalOpen) {
+      // P1 fix: also resolve any pending confirm()/prompt() promise so async
+      // handlers in task-modal don't hang forever waiting for user input.
+      if (D._pendingModalResolve) {
+        try { D._pendingModalResolve(false); } catch {}
+        D._pendingModalResolve = null;
+      }
       closeProfileModal();
     }
   });
@@ -164,6 +212,8 @@
       // Don't stack multiple overlays
       if (document.querySelector('.profile-modal-overlay')) return Promise.resolve(false);
       return new Promise((resolve) => {
+        // P1 fix: track the resolver so Escape can resolve it.
+        D._pendingModalResolve = resolve;
         const overlay = document.createElement('div');
         overlay.className = 'profile-modal-overlay';
         overlay.innerHTML = `<div class="profile-modal" style="max-width:400px;text-align:center;">
@@ -181,9 +231,11 @@
           if (!t) return;
           if (t.dataset.action === 'confirm-yes') {
             overlay.remove();
+            D._pendingModalResolve = null;
             resolve(true);
           } else if (t.dataset.action === 'confirm-no') {
             overlay.remove();
+            D._pendingModalResolve = null;
             resolve(false);
           }
         });
@@ -193,6 +245,8 @@
       // Don't stack multiple overlays
       if (document.querySelector('.profile-modal-overlay')) return Promise.resolve(null);
       return new Promise((resolve) => {
+        // P1 fix: track the resolver so Escape can resolve it.
+        D._pendingModalResolve = resolve;
         const overlay = document.createElement('div');
         overlay.className = 'profile-modal-overlay';
         overlay.innerHTML = `<div class="profile-modal" style="max-width:400px;">
@@ -215,10 +269,12 @@
           input.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
               overlay.remove();
+              D._pendingModalResolve = null;
               resolve(input.value);
             }
             if (e.key === 'Escape') {
               overlay.remove();
+              D._pendingModalResolve = null;
               resolve(null);
             }
           });
@@ -228,9 +284,11 @@
           if (!t) return;
           if (t.dataset.action === 'prompt-ok') {
             overlay.remove();
+            D._pendingModalResolve = null;
             resolve(input ? input.value : '');
           } else if (t.dataset.action === 'prompt-cancel') {
             overlay.remove();
+            D._pendingModalResolve = null;
             resolve(null);
           }
         });

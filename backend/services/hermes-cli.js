@@ -172,6 +172,24 @@ function validateHermesArgs(args, allowedFlags = []) {
 
 async function hermesChat(profile, message, options = {}) {
   const { sessionId, timeoutMs = CHAT_TIMEOUT_MS, signal } = options;
+  // BUG 5 fix: validate sessionId before building baseArgs. The base
+  // SESSION_ID_RE from config permits a leading '-' (its character class
+  // includes it), which would still let something like '-evil' slip into
+  // args[3] and be interpreted by hermes as a flag. We layer two checks:
+  //   1) shape check — must match SESSION_ID_RE (length, charset)
+  //   2) leading-char check — must not start with '-' (would be parsed
+  //      as an option by execFile or by hermes itself)
+  if (sessionId != null) {
+    if (typeof sessionId !== 'string') {
+      throw new Error('invalid session id format');
+    }
+    if (!SESSION_ID_RE.test(sessionId)) {
+      throw new Error('invalid session id format');
+    }
+    if (sessionId.startsWith('-')) {
+      throw new Error('invalid session id format: leading dash');
+    }
+  }
   const safeMessage = String(message || '').replace(/^--/g, '').replace(/^-(?=[a-zA-Z])/g, '');
   const baseArgs = sessionId
     ? ['chat', '--resume', sessionId, '-q', safeMessage]

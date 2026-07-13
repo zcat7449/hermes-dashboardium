@@ -130,6 +130,10 @@
 
   async function showTaskModal(board, taskId) {
     if (!board || !taskId) return;
+    // P1 fix: clear any existing overlay before creating a new one (in case
+    // fetchTaskDetails throws after a previous modal was open).
+    const existing = document.querySelector('.task-modal-overlay');
+    if (existing) existing.remove();
     currentTask = { board, taskId };
     try {
       const data = await A.fetchTaskDetails(board, taskId);
@@ -155,6 +159,9 @@
   }
 
   function closeTaskModal() {
+    // P1 fix: also clear currentTask so a stale task reference doesn't survive
+    // modal close. The global Escape handler in config.js removes the DOM but
+    // doesn't reset currentTask — fix that here by always resetting.
     currentTask = null;
     const overlay = document.querySelector('.task-modal-overlay');
     if (overlay) overlay.remove();

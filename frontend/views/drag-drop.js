@@ -148,6 +148,21 @@
       touchDragCard = null;
       touchMoved = false;
     });
+    D.els.topGrid.addEventListener('touchcancel', () => {
+      // P1 fix: same cleanup as touchend, since touchcancel fires when the
+      // gesture is interrupted (scroll, system UI, navigation). Without this,
+      // a stale 'dragging' class and orphan touchClone can persist.
+      if (touchDragCard) touchDragCard.classList.remove('dragging');
+      if (touchClone) { touchClone.remove(); touchClone = null; }
+      if (D.dragOverSlot !== null) {
+        const prev = D.els.topGrid.querySelector(`.card[data-slot="${D.dragOverSlot}"]`);
+        if (prev) prev.classList.remove('drag-over');
+      }
+      D.dragSource = null;
+      D.dragOverSlot = null;
+      touchDragCard = null;
+      touchMoved = false;
+    });
   }
 
   window.Dashboard.DragDrop = { attachListeners };

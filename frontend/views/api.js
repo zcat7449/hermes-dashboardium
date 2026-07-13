@@ -222,7 +222,9 @@
             }
           }
         }
-        D.chatLog[name] = fresh;
+        // P1 fix: cap switch-session chat log to last 100 entries (was unbounded).
+        // Server may return 10k+ messages for ancient sessions.
+        D.chatLog[name] = fresh.length > 100 ? fresh.slice(-100) : fresh;
         getRender().renderLog(name);
       } else {
         const existing = D.chatLog[name] || [];
@@ -367,6 +369,11 @@
 
     ws.onclose = (event) => {
       console.log('ws: disconnected', event.code, event.reason);
+      // P1 fix: stop ALL typing timers on WS disconnect so a 120s false
+      // "model didn't answer" warning never appears for a connection that's dead.
+      if (window.Dashboard && window.Dashboard.Actions && window.Dashboard.Actions.stopAllTypingTimers) {
+        try { window.Dashboard.Actions.stopAllTypingTimers(); } catch {}
+      }
       ws = null;
       getRender().setConn('error', 'reconnecting…');
       wsScheduleReconnect();
@@ -375,7 +382,23 @@
     ws.onerror = (err) => {
       console.error('ws: error', err && err.message);
       err && err.preventDefault && err.preventDefault();
-      // onclose will fire after onerror
+      // P1 fix: in some browsers (Firefox/Chromium) onerror fires WITHOUT
+      // a subsequent onclose. Stop timers now too, and schedule reconnect
+      // if onclose never comes.
+      if (window.Dashboard && window.Dashboard.Actions && window.Dashboard.Actions.stopAllTypingTimers) {
+        try { window.Dashboard.Actions.stopAllTypingTimers(); } catch {}
+      }
+      // Safety net: if onclose doesn't fire within 5s, force reconnect
+      if (!ws._errorReconnectScheduled) {
+        ws._errorReconnectScheduled = true;
+        setTimeout(() => {
+          if (ws && ws.readyState !== WebSocket.OPEN && ws.readyState !== WebSocket.CONNECTING) {
+            try { ws.close(); } catch {}
+            ws = null;
+            wsScheduleReconnect();
+          }
+        }, 5000);
+      }
     };
   }
 

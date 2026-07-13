@@ -141,7 +141,13 @@
         window.Dashboard.Data.profileModalOpen = false;
       }
       if (taskModal) {
-        taskModal.remove();
+        // P1 fix: route through closeTaskModal() so currentTask is reset
+        // and any pending confirm()/prompt() in task-modal handler is resolved.
+        if (window.Dashboard && window.Dashboard.TaskModal && window.Dashboard.TaskModal.closeTaskModal) {
+          try { window.Dashboard.TaskModal.closeTaskModal(); } catch { taskModal.remove(); }
+        } else {
+          taskModal.remove();
+        }
       }
     }
   });

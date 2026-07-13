@@ -22,8 +22,44 @@ let pollSeq = 0;
 // a poll tick takes longer than WS_DELTA_POLL_MS (exportHermesSession can stall).
 let deltaPollInFlight = false;
 
-// Track last known message_count per profile per session for delta push
-const lastSessionCounts = {}; // { profile: { sessionId: message_count } }
+// Track last known message_count per profile per session for delta push.
+// BUG 2 fix: LRU-bounded per profile to prevent unbounded growth when
+// sessions accumulate over weeks/months of operation. Max 100 entries per
+// profile; oldest insertion is dropped when capacity is exceeded.
+const LAST_SESSION_COUNTS_MAX_PER_PROFILE = 100;
+const lastSessionCounts = {}; // { profile: Map<sessionId, message_count> }
+
+/**
+ * Record a session count in the per-profile LRU map, evicting the oldest
+ * entry when the per-profile cap is exceeded.
+ */
+function recordSessionCount(profile, sessionId, count) {
+  if (!lastSessionCounts[profile]) {
+    lastSessionCounts[profile] = new Map();
+  }
+  const m = lastSessionCounts[profile];
+  // Re-insert to move to most-recently-used position.
+  m.delete(sessionId);
+  m.set(sessionId, count);
+  if (m.size > LAST_SESSION_COUNTS_MAX_PER_PROFILE) {
+    const oldestKey = m.keys().next().value;
+    if (oldestKey !== undefined) m.delete(oldestKey);
+  }
+}
+
+/**
+ * Garbage-collect entries in `lastSessionCounts[profile]` that are not in
+ * the current live sessions list. Runs once per poll tick per profile so
+ * the map converges to the actual session set over time.
+ */
+function gcSessionCounts(profile, liveSessionIds) {
+  const m = lastSessionCounts[profile];
+  if (!m) return;
+  const live = new Set(liveSessionIds);
+  for (const sid of m.keys()) {
+    if (!live.has(sid)) m.delete(sid);
+  }
+}
 
 /**
  * Read leader profiles from user_role.json (profiles with role 'leader').
@@ -61,6 +97,28 @@ function authenticateWs(req) {
     const user = decoded.slice(0, colon);
     const pass = decoded.slice(colon + 1);
     return user === AUTH_USERNAME && pass === AUTH_PASSWORD;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * BUG 3 fix: safeSend wraps ws.send so a closed socket doesn't throw.
+ * Returns true on success, false if the socket isn't OPEN or send threw.
+ * JSON.stringify is the caller's responsibility so we don't pay it on
+ * the failure path.
+ */
+function safeSend(ws, obj) {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+  let wire;
+  try {
+    wire = typeof obj === 'string' ? obj : JSON.stringify(obj);
+  } catch {
+    return false;
+  }
+  try {
+    ws.send(wire);
+    return true;
   } catch {
     return false;
   }
@@ -104,7 +162,7 @@ function initWebSocket(httpServer) {
       try {
         msg = JSON.parse(raw.toString());
       } catch {
-        ws.send(JSON.stringify({ type: 'error', error: 'invalid json' }));
+        safeSend(ws, { type: 'error', error: 'invalid json' });
         return;
       }
       await handleWsMessage(ws, msg, req);
@@ -151,35 +209,39 @@ function startDeltaPolling() {
       for (const name of LEADER_PROFILES) {
         try {
           const sessions = await getCachedSessions(name);
+          const liveIds = [];
           for (const s of sessions) {
             const sid = s.id;
             const count = s.message_count || 0;
-            const prev = lastSessionCounts[name] && lastSessionCounts[name][sid];
+            liveIds.push(sid);
+            const m = lastSessionCounts[name];
+            const prev = m ? m.get(sid) : undefined;
             if (prev !== undefined && count > prev) {
               // New messages detected — fetch and push them
               const session = await exportHermesSession(name, sid);
               if (session && Array.isArray(session.messages)) {
                 const newMsgs = session.messages.slice(prev);
-                for (const m of newMsgs) {
-                  if (m.role === 'user' || m.role === 'assistant') {
-                    const text = m.content || '';
+                for (const newMsg of newMsgs) {
+                  if (newMsg.role === 'user' || newMsg.role === 'assistant') {
+                    const text = newMsg.content || '';
                     if (text) {
                       broadcast({
                         type: 'chat_update',
                         profile: name,
                         session_id: sid,
-                        role: m.role === 'user' ? 'you' : 'bot',
+                        role: newMsg.role === 'user' ? 'you' : 'bot',
                         text: text,
-                        timestamp: parseFloat(m.timestamp) || Date.now() / 1000,
+                        timestamp: parseFloat(newMsg.timestamp) || Date.now() / 1000,
                       });
                     }
                   }
                 }
               }
             }
-            if (!lastSessionCounts[name]) lastSessionCounts[name] = {};
-            lastSessionCounts[name][sid] = count;
+            recordSessionCount(name, sid, count);
           }
+          // BUG 2 fix: GC entries for sessions that no longer exist.
+          gcSessionCounts(name, liveIds);
         } catch (e) {
           // Silently skip
         }
@@ -202,14 +264,14 @@ function stopDeltaPolling() {
 async function sendProfilesSnapshot(ws) {
   try {
     const data = await buildProfilesResponse(null);
-    ws.send(JSON.stringify({
+    safeSend(ws, {
       type: 'profiles',
       seq: pollSeq,
       profiles: data,
       polled_at: Date.now(),
-    }));
+    });
   } catch (err) {
-    ws.send(JSON.stringify({ type: 'error', error: 'failed to load profiles' }));
+    safeSend(ws, { type: 'error', error: 'failed to load profiles' });
   }
 }
 
@@ -219,20 +281,20 @@ async function handleWsMessage(ws, msg, req) {
   switch (type) {
     case 'chat': {
       if (!profile || !message) {
-        ws.send(JSON.stringify({ type: 'chat_error', error: 'profile and message required' }));
+        safeSend(ws, { type: 'chat_error', error: 'profile and message required' });
         return;
       }
       if (!/^[a-zA-Z0-9_-]+$/.test(profile)) {
-        ws.send(JSON.stringify({ type: 'chat_error', error: 'invalid profile name' }));
+        safeSend(ws, { type: 'chat_error', error: 'invalid profile name' });
         return;
       }
       if (!checkChatRateLimit(profile)) {
-        ws.send(JSON.stringify({ type: 'chat_error', error: 'rate limit: one message per 5 seconds per profile' }));
+        safeSend(ws, { type: 'chat_error', error: 'rate limit: one message per 5 seconds per profile' });
         return;
       }
       const safeMsg = sanitizeChatMessage(message);
       if (!safeMsg) {
-        ws.send(JSON.stringify({ type: 'chat_error', error: 'message became empty after sanitization' }));
+        safeSend(ws, { type: 'chat_error', error: 'message became empty after sanitization' });
         return;
       }
       auditLog(req, profile, safeMsg);
@@ -249,6 +311,12 @@ async function handleWsMessage(ws, msg, req) {
       const controller = new AbortController();
       ws._chatAbortController = controller;
 
+      // BUG 6 fix: track whether we retried due to "Session not found" so
+      // we can (a) record it in the audit log and (b) re-bind the
+      // effective session id to whatever the retry response actually
+      // contains, instead of leaving the frontend with a stale id.
+      let sessionNotFoundRetried = false;
+
       try {
         let stdout;
         try {
@@ -262,6 +330,14 @@ async function handleWsMessage(ws, msg, req) {
             return;
           }
           if (currentSessionId && String(chatErr.message || '').includes('Session not found')) {
+            // BUG 6 fix: split-brain mitigation. The previous attempt may
+            // have partially written to Hermes-side session storage; we
+            // can't roll that back, but we can:
+            //   1) re-bind currentSessionId from the retry response below
+            //      (so the frontend and our DB agree on the real session)
+            //   2) flag the retry in the audit log so operators can trace
+            //      these events when investigating drift.
+            sessionNotFoundRetried = true;
             currentSessionId = null;
             isNewSession = true;
             stdout = await hermesChat(profile, safeMsg, {
@@ -274,6 +350,30 @@ async function handleWsMessage(ws, msg, req) {
         }
         const parsed = parseHermesChatOutput(stdout);
         const responseText = parsed.response || stdout.trim();
+        // BUG 6 fix: if we retried, prefer the session_id reported in the
+        // retry response over our local null. This converges the two
+        // sides onto whatever Hermes actually created.
+        if (sessionNotFoundRetried) {
+          if (parsed.session_id) {
+            currentSessionId = parsed.session_id;
+          }
+          // BUG 6 fix: record the retry in the audit trail and in stdout
+          // logs. We use the message-text slot (which is hashed and stored)
+          // because auditLog's signature is fixed; the structured fields
+          // (original session, rebound session) are logged separately so
+          // operators can trace the split-brain event end-to-end.
+          try {
+            auditLog(req, profile, `session_not_found_retry:${session_id || 'none'}->${currentSessionId || 'none'}`);
+          } catch (auditErr) {
+            // best-effort; don't break the chat flow on audit failure
+          }
+          log.info('ws chat session_not_found_retry', {
+            profile,
+            original_session_id: session_id || null,
+            rebound_session_id: currentSessionId,
+            reason: 'session_not_found_retry',
+          });
+        }
         if (isPgAvailable() && currentSessionId) {
           try {
             await insertSessionMessage(currentSessionId, profile, 'user', safeMsg);
@@ -283,18 +383,18 @@ async function handleWsMessage(ws, msg, req) {
           }
         }
         log.info('ws chat_response sending', { profile, responseLen: responseText.length, responsePreview: responseText.substring(0, 80) });
-        ws.send(JSON.stringify({
+        safeSend(ws, {
           type: 'chat_response',
           profile,
           response: responseText,
           session_id: currentSessionId || parsed.session_id || null,
           new_session: isNewSession,
-        }));
+        });
         invalidateProfilesResponseCache();
       } catch (err) {
         if (controller.signal.aborted) return;
         log.error('ws chat error', {error: err.message || String(err)});
-        ws.send(JSON.stringify({ type: 'chat_error', error: 'chat failed: ' + (err.message || String(err)) }));
+        safeSend(ws, { type: 'chat_error', error: 'chat failed: ' + (err.message || String(err)) });
       } finally {
         if (ws._chatAbortController === controller) {
           ws._chatAbortController = null;
@@ -305,15 +405,15 @@ async function handleWsMessage(ws, msg, req) {
 
     case 'optimize': {
       if (!profile) {
-        ws.send(JSON.stringify({ type: 'optimize_error', error: 'profile required' }));
+        safeSend(ws, { type: 'optimize_error', error: 'profile required' });
         return;
       }
       if (!/^[a-zA-Z0-9_-]+$/.test(profile)) {
-        ws.send(JSON.stringify({ type: 'optimize_error', error: 'invalid profile name' }));
+        safeSend(ws, { type: 'optimize_error', error: 'invalid profile name' });
         return;
       }
       if (!checkChatRateLimit(profile)) {
-        ws.send(JSON.stringify({ type: 'optimize_error', error: 'rate limit: one request per 5 seconds per profile' }));
+        safeSend(ws, { type: 'optimize_error', error: 'rate limit: one request per 5 seconds per profile' });
         return;
       }
       auditLog(req, profile, 'optimize_context');
@@ -327,12 +427,12 @@ async function handleWsMessage(ws, msg, req) {
           { timeoutMs: 30000, signal: optController.signal }
         );
         if (optController.signal.aborted) return;
-        ws.send(JSON.stringify({ type: 'optimize_response', profile, status: 'optimized' }));
+        safeSend(ws, { type: 'optimize_response', profile, status: 'optimized' });
         invalidateProfilesResponseCache();
       } catch (err) {
         if (optController.signal.aborted) return;
         log.error('ws optimize error', {error: err.message || String(err)});
-        ws.send(JSON.stringify({ type: 'optimize_error', error: 'optimize failed: ' + (err.message || String(err)) }));
+        safeSend(ws, { type: 'optimize_error', error: 'optimize failed: ' + (err.message || String(err)) });
       } finally {
         if (ws._chatAbortController === optController) {
           ws._chatAbortController = null;
@@ -347,24 +447,24 @@ async function handleWsMessage(ws, msg, req) {
       // chat_update messages for that session.
       if (!ws._subscribedSessions) ws._subscribedSessions = new Set();
       if (msg.session_id) ws._subscribedSessions.add(String(msg.session_id));
-      ws.send(JSON.stringify({ type: 'subscribed', session_id: msg.session_id || null }));
+      safeSend(ws, { type: 'subscribed', session_id: msg.session_id || null });
       break;
     }
 
     case 'unsubscribe': {
       if (!ws._subscribedSessions) ws._subscribedSessions = new Set();
       if (msg.session_id) ws._subscribedSessions.delete(String(msg.session_id));
-      ws.send(JSON.stringify({ type: 'unsubscribed', session_id: msg.session_id || null }));
+      safeSend(ws, { type: 'unsubscribed', session_id: msg.session_id || null });
       break;
     }
 
     case 'ping': {
-      ws.send(JSON.stringify({ type: 'pong', ts: Date.now() }));
+      safeSend(ws, { type: 'pong', ts: Date.now() });
       break;
     }
 
     default:
-      ws.send(JSON.stringify({ type: 'error', error: 'unknown message type: ' + type }));
+      safeSend(ws, { type: 'error', error: 'unknown message type: ' + type });
   }
 }
 
@@ -378,7 +478,13 @@ function broadcast(payload) {
     obj = payload;
   }
   const sessionId = obj && obj.session_id;
-  const wire = typeof payload === 'string' ? payload : JSON.stringify(obj);
+  let wire = null;
+  if (typeof payload === 'string') {
+    wire = payload;
+  } else {
+    try { wire = JSON.stringify(obj); } catch { wire = null; }
+  }
+  if (wire == null) return;
   for (const client of wss.clients) {
     if (client.readyState !== WebSocket.OPEN) continue;
     // BUG 3 fix: only deliver to clients that have subscribed to this
@@ -390,7 +496,9 @@ function broadcast(payload) {
         continue;
       }
     }
-    client.send(wire);
+    // BUG 3 fix: route through safeSend so a closed socket mid-loop
+    // doesn't throw and abort the whole broadcast.
+    safeSend(client, wire);
   }
 }
 

@@ -165,18 +165,64 @@ if (require.main === module) {
     });
   })();
 
-  process.on('SIGINT', () => {
-    stopRateLimitSweeper();
-    closeWebSocket();
-    closeDbs();
-    process.exit(0);
-  });
-  process.on('SIGTERM', () => {
-    stopRateLimitSweeper();
-    closeWebSocket();
-    closeDbs();
-    process.exit(0);
-  });
+  // BUG 4 fix: graceful shutdown. The previous handlers called closeDbs()
+  // synchronously while in-flight requests were still finishing, which
+  // could release the file lock mid-query and trigger SQLITE_BUSY on the
+  // next start. The new flow is:
+  //   1) stop accepting new connections (server.close)
+  //   2) tear down WebSocket (which aborts in-flight chats)
+  //   3) close SQLite handles in dbConnections
+  //   4) exit 0 once everything is drained
+  //   5) force-exit after 10s as a safety net (in case a child process is
+  //      stuck or fsync is hanging)
+  let shuttingDown = false;
+  const gracefulShutdown = (signal) => {
+    if (shuttingDown) {
+      log.warn('shutdown: second signal received, forcing exit', {signal});
+      process.exit(1);
+    }
+    shuttingDown = true;
+    log.info('shutdown: signal received', {signal});
+    const forceExit = setTimeout(() => {
+      log.warn('shutdown: 10s grace period exceeded, forcing exit');
+      process.exit(1);
+    }, 10000);
+    // Don't keep the event loop alive purely for this timer.
+    if (typeof forceExit.unref === 'function') forceExit.unref();
+
+    const done = () => {
+      clearTimeout(forceExit);
+      log.info('shutdown: clean exit');
+      process.exit(0);
+    };
+
+    try {
+      stopRateLimitSweeper();
+    } catch (e) {
+      log.warn('shutdown: stopRateLimitSweeper error', {error: e.message});
+    }
+    try {
+      closeWebSocket();
+    } catch (e) {
+      log.warn('shutdown: closeWebSocket error', {error: e.message});
+    }
+    try {
+      closeDbs();
+    } catch (e) {
+      log.warn('shutdown: closeDbs error', {error: e.message});
+    }
+    // Stop accepting new HTTP connections. Existing ones get a chance to
+    // finish, then the callback fires.
+    try {
+      server.close(() => done());
+    } catch (e) {
+      log.warn('shutdown: server.close error', {error: e.message});
+      done();
+    }
+  };
+
+  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 }
 
 // Exports for tests

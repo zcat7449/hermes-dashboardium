@@ -99,6 +99,23 @@
     }
   }
 
+  // P1 fix: stop ALL typing timers (called from ws.onclose / ws.onerror).
+  // Without this, a WS disconnect during pending chat leaves timers ticking
+  // for 120s and eventually appends a false "model didn't answer" warning
+  // to the chat even though the connection is dead.
+  function stopAllTypingTimers() {
+    if (D._typingTimers) {
+      for (const k of Object.keys(D._typingTimers)) {
+        clearInterval(D._typingTimers[k]);
+        delete D._typingTimers[k];
+        // Also remove the typing indicator from the chat so the UI reflects reality
+        if (typeof R !== 'undefined' && R.removeLastChat) {
+          try { R.removeLastChat(k, 'typing'); } catch {}
+        }
+      }
+    }
+  }
+
   async function doSend(name, input) {
     if (D._sending.has(name)) return;
     const text = (input.value || '').trim();
@@ -432,5 +449,6 @@
     doSend,
     doRenameSession,
     doDeleteSession,
+    stopAllTypingTimers,
   };
 })();

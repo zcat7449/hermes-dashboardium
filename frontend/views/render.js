@@ -214,7 +214,19 @@
   function appendChat(name, role, text) {
     if (!D.chatLog[name]) D.chatLog[name] = [];
     D.chatLog[name].push({ role, text, ts: Date.now() });
-    if (D.chatLog[name].length > 100) D.chatLog[name] = D.chatLog[name].slice(-100);
+    // P1 fix: cap by message count AND total bytes. Without byte cap, a
+    // 5MB bot response × 100 messages = 500MB in RAM. Cap is per profile
+    // and tracks estimated byte size.
+    const log = D.chatLog[name];
+    let totalBytes = log._totalBytes || 0;
+    totalBytes += (text && text.length) || 0;
+    while (log.length > 100 || totalBytes > 1024 * 1024) {
+      const removed = log.shift();
+      totalBytes -= (removed && removed.text && removed.text.length) || 0;
+      if (log.length === 0) break;
+    }
+    log._totalBytes = Math.max(0, totalBytes);
+    D.chatLog[name] = log;
     const logEl = D.els.topGrid.querySelector(`[data-chat-log="${CSS.escape(name)}"]`);
     if (logEl) {
       const empty = logEl.querySelector('.empty');
@@ -305,9 +317,43 @@
   }
 
   function renderAll() {
+    // P1 fix: preserve focus + cursor + partially-typed text across re-render.
+    // Save currently focused element by data-chat-input (or other selector) and
+    // restore focus + selectionStart/End after re-render.
+    const focusKey = (function () {
+      const a = document.activeElement;
+      if (!a || !a.dataset) return null;
+      if (a.dataset.chatInput) return { type: 'chat-input', name: a.dataset.chatInput, selStart: a.selectionStart, selEnd: a.selectionEnd, value: a.value };
+      if (a.id === 'filterInput') return { type: 'filter', selStart: a.selectionStart, selEnd: a.selectionEnd, value: a.value };
+      if (a.id === 'pmSearchInput') return { type: 'pm-search', selStart: a.selectionStart, selEnd: a.selectionEnd, value: a.value };
+      return null;
+    })();
     renderTop();
     renderBottom();
     renderAddDropdown();
+    if (focusKey) {
+      // Restore focus synchronously before the browser yields. Use rAF for safety.
+      requestAnimationFrame(() => {
+        let target = null;
+        if (focusKey.type === 'chat-input') {
+          target = document.querySelector(`input[data-chat-input="${CSS.escape(focusKey.name)}"]`);
+        } else if (focusKey.type === 'filter') {
+          target = document.getElementById('filterInput');
+        } else if (focusKey.type === 'pm-search') {
+          target = document.getElementById('pmSearchInput');
+        }
+        if (target && document.activeElement !== target) {
+          // Only restore if value is empty or matches what was being typed
+          // (don't restore if user already moved on)
+          if (focusKey.value === '' || target.value === focusKey.value) {
+            target.focus();
+            if (typeof focusKey.selStart === 'number') {
+              try { target.setSelectionRange(focusKey.selStart, focusKey.selEnd); } catch {}
+            }
+          }
+        }
+      });
+    }
   }
 
   function setConn(state, text) {
