@@ -1,0 +1,14 @@
+{
+  "name": "dashboardium-e2e",
+  "version": "1.0.0",
+  "description": "E2E/UI tests for Dashboardium — Puppeteer-based, no dependencies on backend test runner",
+  "private": true,
+  "scripts": {
+    "test:e2e": "node tests/e2e/run-all.js",
+    "test:e2e:single": "node tests/e2e/run-all.js --only",
+    "test:e2e:list": "node tests/e2e/run-all.js --list"
+  },
+  "devDependencies": {
+    "puppeteer": "^23.0.0"
+  }
+}
