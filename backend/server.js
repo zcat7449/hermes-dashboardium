@@ -4,12 +4,28 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
+const crypto = require('crypto');
 const log = require('./services/logger');
 const { PORT, HOST, FRONTEND_DIR, PG_IMPORT_FROM_SQLITE, PROFILES_DIR, HERMES_BIN } = require('./config');
 const { initPostgres, isPgAvailable, query, getPool } = require('./db');
 const { closeDbs } = require('./services/sqlite');
 const { importSessionsFromSqlite } = require('./services/pg-import');
 const { initWebSocket, closeWebSocket } = require('./services/websocket');
+
+// Server version — changes on every deploy. Frontend polls /api/version and reloads
+// automatically when it changes. This eliminates the need for manual Ctrl+Shift+R.
+const SERVER_VERSION = process.env.DASHBOARDIUM_VERSION ||
+  (() => {
+    // Auto-derive from mtime of server.js — every deploy touches this file.
+    try {
+      const st = fs.statSync(__filename);
+      return st.mtime.getTime().toString(36);
+    } catch {
+      return Date.now().toString(36);
+    }
+  })();
+const DEPLOYED_AT = new Date().toISOString();
+log.info('server version', { version: SERVER_VERSION, deployedAt: DEPLOYED_AT });
 
 // Middleware
 const corsMiddleware = require('./middleware/cors');
@@ -46,6 +62,10 @@ const {
 } = require('./db');
 
 const app = express();
+// Disable ETag globally — we want every response to be re-validated so deploys take effect.
+app.set('etag', false);
+// Disable X-Powered-By (minor security)
+app.disable('x-powered-by');
 app.set('trust proxy', 1);
 
 // Middleware stack
@@ -54,9 +74,47 @@ app.use(express.json({ limit: '8kb' }));
 app.use(globalRateLimitMiddleware);
 
 // Frontend static routes — public (no auth), so browser can load the UI
-app.use('/public', express.static(path.join(FRONTEND_DIR, 'public')));
-app.get('/', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'views', 'index.html')));
-app.use(express.static(FRONTEND_DIR));
+app.use('/public', express.static(path.join(FRONTEND_DIR, 'public'), { etag: false, lastModified: false, maxAge: 0 }));
+app.get('/', (req, res) => {
+  // Inject <meta name="server-version"> so the frontend knows which version is deployed
+  // without a roundtrip. Combined with /api/version polling, this gives instant auto-reload.
+  const indexPath = path.join(FRONTEND_DIR, 'views', 'index.html');
+  let html;
+  try {
+    html = fs.readFileSync(indexPath, 'utf8');
+  } catch (e) {
+    return res.status(500).send('index.html not found');
+  }
+  const metaTag = `<meta name="server-version" content="${SERVER_VERSION}">`;
+  if (html.includes('name="server-version"')) {
+    html = html.replace(/<meta name="server-version"[^>]*>/, metaTag);
+  } else {
+    html = html.replace('<meta charset="UTF-8">', `<meta charset="UTF-8">\n${metaTag}`);
+  }
+  // Replace __SERVER_VERSION__ placeholder in <script src="...v=__SERVER_VERSION__"> tags
+  // so the browser always sees a version that changes on every deploy — no manual ?v= bump.
+  html = html.replace(/__SERVER_VERSION__/g, SERVER_VERSION);
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(html);
+});
+// views/* must always be fresh — cache-bust ?v= handles the rest
+app.use('/views', express.static(path.join(FRONTEND_DIR, 'views'), { etag: false, lastModified: false, maxAge: 0, setHeaders: (res) => res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate') }));
+app.use(express.static(FRONTEND_DIR, { etag: false, lastModified: false, maxAge: 0 }));
+
+// Global no-cache for ALL responses (HTML, JS, CSS) — the browser must always re-validate
+// so deploys take effect without manual refresh.
+app.use((req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.setHeader('X-Server-Version', SERVER_VERSION);
+  next();
+});
+
+// Version endpoint — frontend polls this to detect deploys and auto-reload.
+app.get('/api/version', (req, res) => {
+  res.json({ version: SERVER_VERSION, deployedAt: DEPLOYED_AT });
+});
 
 // API routes — behind auth
 app.use('/api', pathGuardMiddleware);

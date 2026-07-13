@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const fsp = require('fs').promises;
 const fs = require('fs');
 const path = require('path');
 const log = require('../services/logger');
@@ -8,31 +9,36 @@ const AUDIT_LOG_FILE = path.join(AUDIT_LOG_DIR, 'dashboardium-audit.jsonl');
 const AUDIT_MAX_SIZE = 5 * 1024 * 1024; // 5 MB
 const AUDIT_KEEP_ARCHIVES = 3;
 
-function ensureLogDir() {
-  try {
-    fs.mkdirSync(AUDIT_LOG_DIR, { recursive: true });
-  } catch {}
-}
+// Serialise rotations + appends on a single shared queue so concurrent
+// auditLog() calls never interleave a rotation with a write (prevents the
+// previous TOCTOU race that lost entries under load).
+let writeQueue = Promise.resolve();
 
-function rotateIfNeeded() {
+async function rotateIfNeeded() {
   try {
-    if (!fs.existsSync(AUDIT_LOG_FILE)) return;
-    const stats = fs.statSync(AUDIT_LOG_FILE);
+    let stats;
+    try {
+      stats = await fsp.stat(AUDIT_LOG_FILE);
+    } catch {
+      return; // file doesn't exist yet — nothing to rotate
+    }
     if (stats.size < AUDIT_MAX_SIZE) return;
-    // Rotate: delete oldest, shift archives
+    // Rotate: delete oldest, shift archives. Done sequentially.
     for (let i = AUDIT_KEEP_ARCHIVES; i >= 1; i--) {
       const old = `${AUDIT_LOG_FILE}.${i}`;
       const next = `${AUDIT_LOG_FILE}.${i + 1}`;
-      if (fs.existsSync(old)) {
+      try {
         if (i === AUDIT_KEEP_ARCHIVES) {
-          fs.unlinkSync(old); // delete oldest
+          await fsp.unlink(old).catch(() => {});
         } else {
-          fs.renameSync(old, next);
+          await fsp.rename(old, next);
         }
-      }
+      } catch {}
     }
-    fs.renameSync(AUDIT_LOG_FILE, `${AUDIT_LOG_FILE}.1`);
-  } catch {}
+    await fsp.rename(AUDIT_LOG_FILE, `${AUDIT_LOG_FILE}.1`);
+  } catch (err) {
+    log.warn('audit rotation error', {error: err.message});
+  }
 }
 
 function auditLog(req, profile, message) {
@@ -50,17 +56,23 @@ function auditLog(req, profile, message) {
   };
   const line = JSON.stringify(entry) + '\n';
 
-  // Write to file (with rotation)
-  try {
-    ensureLogDir();
-    rotateIfNeeded();
-    fs.appendFileSync(AUDIT_LOG_FILE, line);
-  } catch (err) {
-    // Fallback to stdout if file write fails
-    log.info('audit', {line: line.trim()});
-  }
+  // BUG 5 fix: async file I/O via fs.promises + serialised queue. Previously
+  // appendFileSync + statSync blocked the event loop on every chat message,
+  // causing WS backpressure and visible lag under load.
+  writeQueue = writeQueue.then(async () => {
+    try {
+      await fsp.mkdir(AUDIT_LOG_DIR, { recursive: true });
+      await rotateIfNeeded();
+      await fsp.appendFile(AUDIT_LOG_FILE, line);
+    } catch (err) {
+      // Fallback to stdout if file write fails — never let audit break the request
+      log.info('audit fallback (file write failed)', {line: line.trim(), error: err.message});
+    }
+  }).catch(err => {
+    log.warn('audit queue error', {error: err.message});
+  });
 
-  // Also log to stdout for immediate visibility
+  // Also log to stdout for immediate visibility (synchronous, cheap)
   log.info('audit', {line: line.trim()});
 }
 

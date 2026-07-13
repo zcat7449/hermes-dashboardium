@@ -259,10 +259,11 @@ main {
   min-height: 0;
 }
 .top-grid .card .chat .log {
-  flex: 1;
-  max-height: none;
+  flex: 1 1 auto;
+  max-height: 200px;
   min-height: 60px;
   overflow-y: auto;
+  scroll-behavior: auto;
 }
 .top-grid .card .chat .row {
   flex-shrink: 0;
@@ -1025,15 +1026,7 @@ main {
   </div>
 </div>
 
-<script src="/views/config.js?v=5"></script>
-<script src="/views/utils.js?v=3"></script>
-<script src="/views/state.js?v=3"></script>
-<script src="/views/render.js?v=3"></script>
-<script src="/views/api.js?v=3"></script>
-<script src="/views/drag-drop.js?v=3"></script>
-<script src="/views/modal.js?v=3"></script>
-<script src="/views/task-modal.js?v=1"></script>
-<script src="/views/actions.js?v=3"></script>
+  // script tags injected by server — see <script src="/views/...v=__SERVER_VERSION__"> below
 
 </body>
 </html>

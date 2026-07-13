@@ -219,17 +219,24 @@
     if (logEl) {
       const empty = logEl.querySelector('.empty');
       if (empty) empty.remove();
+      // Strip ANSI escape codes from bot responses (Hermes CLI uses them)
+      const cleanText = (role === 'bot' && text) ? String(text).replace(/\x1B\[[0-9;]*[A-Za-z]/g, '') : text;
       const div = document.createElement('div');
       div.className = 'msg-' + role;
       if (role === 'typing') {
         div.innerHTML = '⟳ <span class="typing-text">модель думает</span><span class="timer">0с</span>';
         div._startTime = Date.now();
       } else {
-        div.textContent = (role === 'you' ? t('msg_you') + ' ' : t('msg_bot') + ' ') + text;
+        div.textContent = (role === 'you' ? t('msg_you') + ' ' : t('msg_bot') + ' ') + cleanText;
       }
-      const isNearBottom = (logEl.scrollHeight - logEl.scrollTop - logEl.clientHeight) < 2;
       logEl.appendChild(div);
-      if (isNearBottom) logEl.scrollTop = logEl.scrollHeight;
+      // Force layout flush, then scroll to bottom (Telegram-style: stick to bottom).
+      // requestAnimationFrame ensures DOM is updated before scrollTop is set.
+      requestAnimationFrame(() => {
+        logEl.scrollTop = logEl.scrollHeight;
+        // Double-tap: if the response is very long, browser may need a second frame
+        requestAnimationFrame(() => { logEl.scrollTop = logEl.scrollHeight; });
+      });
     }
   }
 
@@ -256,9 +263,8 @@
       logEl.innerHTML = log.length === 0
         ? '<div class="empty">' + t('dialog_empty') + '</div>'
         : log.map(m => `<div class="msg-${m.role}">${m.role === 'you' ? t('msg_you') : t('msg_bot')} ${U.esc(m.text)}</div>`).join('');
-      // Scroll only if user was already at the bottom.
-      const isNearBottom = (logEl.scrollHeight - logEl.scrollTop - logEl.clientHeight) < 2;
-      if (isNearBottom) logEl.scrollTop = logEl.scrollHeight;
+      // Always scroll to bottom on re-render so new messages are visible (Telegram-style).
+      logEl.scrollTop = logEl.scrollHeight;
     }
   }
 

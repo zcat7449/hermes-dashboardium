@@ -171,25 +171,84 @@ function validateHermesArgs(args, allowedFlags = []) {
 }
 
 async function hermesChat(profile, message, options = {}) {
-  const { sessionId, timeoutMs = CHAT_TIMEOUT_MS } = options;
+  const { sessionId, timeoutMs = CHAT_TIMEOUT_MS, signal } = options;
   const safeMessage = String(message || '').replace(/^--/g, '').replace(/^-(?=[a-zA-Z])/g, '');
   const baseArgs = sessionId
     ? ['chat', '--resume', sessionId, '-q', safeMessage]
     : ['chat', '-q', safeMessage];
   const args = validateHermesArgs(baseArgs, ['-q', '-Q', '--resume']);
-  await execFileAsync(HERMES_BIN, ['profile', 'use', profile], {
-    timeout: PROFILE_SWITCH_TIMEOUT_MS,
+
+  // Track spawned children so we can SIGTERM → SIGKILL them on signal
+  // abort. Node 22's execFile supports a `signal` option that sends
+  // SIGTERM automatically, but if it isn't available (older Node, or
+  // a child that ignores SIGTERM) we fall back to manual kill.
+  const liveChildren = new Set();
+  const killAll = () => {
+    for (const child of liveChildren) {
+      try { child.kill('SIGTERM'); } catch {}
+    }
+    setTimeout(() => {
+      for (const child of liveChildren) {
+        try { child.kill('SIGKILL'); } catch {}
+      }
+    }, 1000);
+  };
+  let onAbort = null;
+  if (signal) {
+    if (signal.aborted) {
+      throw new Error('aborted');
+    }
+    onAbort = () => killAll();
+    signal.addEventListener('abort', onAbort, { once: true });
+  }
+
+  const execOpts = { timeout: timeoutMs };
+  if (signal) execOpts.signal = signal;
+  // Wrap execFileAsync to register each child for manual SIGKILL fallback.
+  const trackedExec = (bin, a, opts) => new Promise((resolve, reject) => {
+    const child = execFile(bin, a, opts, (err, stdout, stderr) => {
+      liveChildren.delete(child);
+      if (err) {
+        if (signal && signal.aborted) {
+          const e = new Error('aborted'); e.code = 'ABORT_ERR'; return reject(e);
+        }
+        err.stderr = stderr;
+        return reject(err);
+      }
+      resolve({ stdout, stderr });
+    });
+    liveChildren.add(child);
   });
+
+  try {
+    await trackedExec(HERMES_BIN, ['profile', 'use', profile], {
+      timeout: PROFILE_SWITCH_TIMEOUT_MS,
+      ...(signal ? { signal } : {}),
+    });
+  } catch (e) {
+    if (signal && signal.aborted) {
+      throw Object.assign(new Error('aborted'), { name: 'AbortError' });
+    }
+    throw e;
+  }
+
   let result;
   try {
-    const { stdout } = await execFileAsync(HERMES_BIN, args, { timeout: timeoutMs });
+    const { stdout } = await trackedExec(HERMES_BIN, args, execOpts);
     result = stdout;
+  } catch (e) {
+    if (signal && signal.aborted) {
+      throw Object.assign(new Error('aborted'), { name: 'AbortError' });
+    }
+    throw e;
   } finally {
     try {
-      await execFileAsync(HERMES_BIN, ['profile', 'use', 'default'], {
+      await trackedExec(HERMES_BIN, ['profile', 'use', 'default'], {
         timeout: PROFILE_SWITCH_TIMEOUT_MS,
+        ...(signal ? { signal } : {}),
       });
     } catch (_) {}
+    if (onAbort && signal) signal.removeEventListener('abort', onAbort);
   }
   return result;
 }

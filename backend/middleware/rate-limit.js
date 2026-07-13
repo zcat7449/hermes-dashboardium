@@ -64,9 +64,13 @@ function globalRateLimitMiddleware(req, res, next) {
 
 function checkChatRateLimit(profile) {
   const now = Date.now();
-  const last = chatRateLimits.get(profile) || 0;
-  if (now - last < 5000) return false;
-  chatRateLimits.set(profile, now);
+  // BUG 2 fix: store bucket as { resetAt } so sweepExpiredBuckets can evict it.
+  // Previously we stored a bare number, so `bucket.resetAt !== undefined`
+  // was always false and the sweeper never deleted anything — Map grew
+  // unboundedly. Now: 5s sliding window, sweepable.
+  const bucket = chatRateLimits.get(profile);
+  if (bucket && now < bucket.resetAt) return false;
+  chatRateLimits.set(profile, { resetAt: now + 5000 });
   return true;
 }
 

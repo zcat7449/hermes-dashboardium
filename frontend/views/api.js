@@ -205,29 +205,42 @@
 
   async function loadSessionMessages(name, sid) {
     if (!sid) return;
+    const prevLoaded = D.loadedSessions[name];
     D.loadedSessions[name] = sid;
     try {
       const r = await fetchJson(C.API_BASE + '/api/profiles/' + encodeURIComponent(name) + '/sessions/' + encodeURIComponent(sid) + '/messages');
       const msgs = (r && r.messages) || [];
-      const existing = D.chatLog[name] || [];
-      const existingSet = new Set(existing.map(m => m.ts + '|' + m.text));
-      let added = 0;
-      for (const m of msgs) {
-        if (m.role === 'user' || m.role === 'assistant') {
-          const text = m.content || '';
-          if (text) {
-            const key = ((m.timestamp || 0) * 1000) + '|' + text;
-            if (!existingSet.has(key)) {
-              existing.push({ role: m.role === 'user' ? 'you' : 'bot', text, ts: (m.timestamp || 0) * 1000 });
-              existingSet.add(key);
-              added++;
+      // If we're switching to a different session, REPLACE the chat log entirely.
+      // Otherwise (same session, just a refresh) merge with dedup.
+      if (prevLoaded !== sid) {
+        const fresh = [];
+        for (const m of msgs) {
+          if (m.role === 'user' || m.role === 'assistant') {
+            const text = m.content || '';
+            if (text) {
+              fresh.push({ role: m.role === 'user' ? 'you' : 'bot', text, ts: (m.timestamp || 0) * 1000 });
             }
           }
         }
+        D.chatLog[name] = fresh;
+        getRender().renderLog(name);
+      } else {
+        const existing = D.chatLog[name] || [];
+        const existingSet = new Set(existing.map(m => (m.ts || 0) + '|' + m.text));
+        for (const m of msgs) {
+          if (m.role === 'user' || m.role === 'assistant') {
+            const text = m.content || '';
+            if (text) {
+              const key = ((m.timestamp || 0) * 1000) + '|' + text;
+              if (!existingSet.has(key)) {
+                existing.push({ role: m.role === 'user' ? 'you' : 'bot', text, ts: (m.timestamp || 0) * 1000 });
+                existingSet.add(key);
+              }
+            }
+          }
+        }
+        if (existing.length > 100) D.chatLog[name] = existing.slice(-100);
       }
-      if (existing.length > 100) D.chatLog[name] = existing.slice(-100);
-      else D.chatLog[name] = existing;
-      if (added > 0) getRender().renderLog(name);
     } catch (e) {
       console.warn('load messages error', e);
     }
@@ -282,6 +295,10 @@
     unblockTask,
     reassignTask,
     archiveTask,
+    // Local storage fallbacks for offline / API-down scenarios.
+    localCreate,
+    localList,
+    localDelete,
     // Internal reconnect is handled by wsScheduleReconnect().
     // wsReconnect is NOT exported — callers use wsConnect() directly.
     wsConnect,
@@ -449,26 +466,38 @@
         // Only update profile data (status, usage, timer) — don't re-render chat
         getRender().updateProfileData();
 
-        // Refresh sessions list for leaders (to get fresh message_count for delta detection)
-        const curLeaders = D.leaders.filter(Boolean);
-        for (const name of curLeaders) {
-          listSessions(name).then(list => {
-            D.sessionsMap[name] = list;
-            if (D.activeSessionMap[name] === undefined && list.length > 0) {
-              D.activeSessionMap[name] = list[0].id;
-            }
-            // Check for new messages in active session
-            const activeSid = D.activeSessionMap[name];
-            if (!activeSid) return;
-            const activeSession = list.find(s => s.id === activeSid);
-            if (!activeSession) return;
-            const prevCount = D._lastMsgCount[name + ':' + activeSid];
-            const curCount = activeSession.message_count || 0;
-            if (prevCount !== undefined && curCount > prevCount) {
-              loadSessionMessages(name, activeSid);
-            }
-            D._lastMsgCount[name + ':' + activeSid] = curCount;
-          });
+        // Refresh sessions list for leaders — THROTTLED (was: on every WS profiles push = 4 RPS)
+        // Now: at most once every 5s, and only if not already in flight.
+        if (!D._sessionsRefreshInFlight && (!D._lastSessionsRefresh || Date.now() - D._lastSessionsRefresh > 5000)) {
+          D._sessionsRefreshInFlight = true;
+          D._lastSessionsRefresh = Date.now();
+          const curLeaders = D.leaders.filter(Boolean);
+          Promise.all(curLeaders.map(name => listSessions(name).then(list => ({ name, list }))))
+            .then(results => {
+              for (const { name, list } of results) {
+                D.sessionsMap[name] = list;
+                if (D.activeSessionMap[name] === undefined && list.length > 0) {
+                  D.activeSessionMap[name] = list[0].id;
+                }
+                // Check for new messages in active session
+                const activeSid = D.activeSessionMap[name];
+                if (!activeSid) continue;
+                const activeSession = list.find(s => s.id === activeSid);
+                if (!activeSession) continue;
+                const prevCount = D._lastMsgCount[name + ':' + activeSid];
+                const curCount = activeSession.message_count || 0;
+                if (prevCount === undefined) {
+                  // First push after connect/load — backfill the active session
+                  loadSessionMessages(name, activeSid);
+                } else if (curCount > prevCount) {
+                  loadSessionMessages(name, activeSid);
+                }
+                D._lastMsgCount[name + ':' + activeSid] = curCount;
+              }
+              getRender().renderSessionPanelAll();
+            })
+            .catch(e => console.warn('sessions refresh error', e))
+            .finally(() => { D._sessionsRefreshInFlight = false; });
         }
 
         const filled = D.leaders.filter(Boolean).length;

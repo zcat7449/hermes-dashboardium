@@ -238,7 +238,8 @@
       const name = t.dataset.name;
       const sid = t.dataset.sid;
       D.activeSessionMap[name] = sid;
-      A.loadSessionMessages(name, sid).then(() => R.renderLog(name));
+      // loadSessionMessages now calls renderLog internally for a fresh session
+      A.loadSessionMessages(name, sid);
       R.renderSessionPanel(name);
     } else if (action === 'sess-rename') {
       e.stopPropagation();
