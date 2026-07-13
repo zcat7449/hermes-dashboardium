@@ -103,6 +103,8 @@
   }
 
   function showProfileModal() {
+    // Don't open if task modal is visible
+    if (document.querySelector('.task-modal-overlay')) return;
     D.profileModalOpen = true;
     D.profileModalFilter = '';
     D.profileModalSelected = [];
@@ -111,6 +113,8 @@
   }
 
   function showWatchedModal() {
+    // Don't open if task modal is visible
+    if (document.querySelector('.task-modal-overlay')) return;
     D.profileModalOpen = true;
     D.profileModalFilter = '';
     D.profileModalSelected = [];

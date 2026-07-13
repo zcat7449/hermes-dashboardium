@@ -7,8 +7,8 @@
  */
 
 const AUTH_USER = process.env.AUTH_USERNAME || '';
-const AUTH_PASS = process.env.AUTH_PASSWORD || '';
-const AUTH_ENABLED = !!(AUTH_USER && AUTH_PASS);
+function getAuthPass() { return process.env.AUTH_PASSWORD || ''; }
+const AUTH_ENABLED = !!(AUTH_USER && getAuthPass());
 
 // Public paths that bypass auth (health-check for monitoring, etc.)
 const ALLOWLIST = new Set(['/health']);
@@ -52,7 +52,7 @@ function basicAuthMiddleware(req, res, next) {
     if (colon === -1) throw new Error('invalid format');
     const user = decoded.slice(0, colon);
     const pass = decoded.slice(colon + 1);
-    if (user !== AUTH_USER || pass !== AUTH_PASS) {
+    if (user !== AUTH_USER || pass !== getAuthPass()) {
       if (!checkAuthRateLimit(ip)) {
         res.set('Retry-After', '60');
         return res.status(429).json({ error: 'too many failed auth attempts' });

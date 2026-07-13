@@ -261,19 +261,35 @@ async function getProfileContextFromLog(profile) {
 }
 
 async function hermesKanbanBlock(taskId, reason) {
-  await execFileAsync(HERMES_BIN, ['kanban', 'block', taskId, reason], { timeout: 10000 });
+  try {
+    await execFileAsync(HERMES_BIN, ['kanban', 'block', taskId, reason], { timeout: 10000 });
+  } catch (e) {
+    throw new Error('kanban block failed: ' + (e.message || String(e)));
+  }
 }
 
 async function hermesKanbanUnblock(taskId, reason) {
-  await execFileAsync(HERMES_BIN, ['kanban', 'unblock', taskId, reason], { timeout: 10000 });
+  try {
+    await execFileAsync(HERMES_BIN, ['kanban', 'unblock', taskId, reason], { timeout: 10000 });
+  } catch (e) {
+    throw new Error('kanban unblock failed: ' + (e.message || String(e)));
+  }
 }
 
 async function hermesKanbanReassign(taskId, assignee) {
-  await execFileAsync(HERMES_BIN, ['kanban', 'reassign', taskId, '--assignee', assignee], { timeout: 10000 });
+  try {
+    await execFileAsync(HERMES_BIN, ['kanban', 'reassign', taskId, '--assignee', assignee], { timeout: 10000 });
+  } catch (e) {
+    throw new Error('kanban reassign failed: ' + (e.message || String(e)));
+  }
 }
 
 async function hermesKanbanArchive(taskId) {
-  await execFileAsync(HERMES_BIN, ['kanban', 'archive', taskId], { timeout: 10000 });
+  try {
+    await execFileAsync(HERMES_BIN, ['kanban', 'archive', taskId], { timeout: 10000 });
+  } catch (e) {
+    throw new Error('kanban archive failed: ' + (e.message || String(e)));
+  }
 }
 
 module.exports = {

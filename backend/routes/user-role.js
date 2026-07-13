@@ -39,8 +39,25 @@ function mountUserRoleRoutes(app) {
       res.status(400).json({ error: 'entries must be an array' });
       return;
     }
-    if (entries.length > 4) {
-      res.status(400).json({ error: 'maximum 4 entries allowed' });
+    if (entries.length === 0) {
+      res.status(400).json({ error: 'entries must not be empty' });
+      return;
+    }
+    // Check for duplicate profiles
+    const profileNames = entries.map(e => e.profile).filter(Boolean);
+    if (new Set(profileNames).size !== profileNames.length) {
+      res.status(400).json({ error: 'duplicate profiles in entries' });
+      return;
+    }
+    // Count leaders and watched separately
+    const leaderCount = entries.filter(e => e.role === 'leader').length;
+    const watchedCount = entries.filter(e => e.role === 'watched').length;
+    if (leaderCount > 4) {
+      res.status(400).json({ error: 'maximum 4 leader entries allowed' });
+      return;
+    }
+    if (watchedCount > 12) {
+      res.status(400).json({ error: 'maximum 12 watched entries allowed' });
       return;
     }
     for (const entry of entries) {

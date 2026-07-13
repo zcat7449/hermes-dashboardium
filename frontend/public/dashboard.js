@@ -969,12 +969,16 @@ main {
     <span class="pulse"></span>
     <span id="connText">live · API</span>
   </div>
+  <select id="langSwitcher" style="margin-left:12px;padding:4px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);font-size:13px;">
+    <option value="ru">RU</option>
+    <option value="en">EN</option>
+  </select>
 </header>
 
 <main>
 
   <div class="section">
-    <h2>Лидеры <span class="count" id="leadersCount">0/4</span>
+    <h2 data-i18n="leaders">Лидеры <span class="count" id="leadersCount">0/4</span>
       <span class="add-leader-wrapper">
         <button id="addLeaderBtn" class="add-leader-btn" title="Добавить лидера">+</button>
         <div id="addLeaderDropdown" class="add-leader-dropdown"></div>
@@ -984,7 +988,7 @@ main {
   </div>
 
   <div class="section">
-    <h2>Все профили <span class="count" id="allCount">0</span></h2>
+    <h2 data-i18n="all_profiles">Все профили <span class="count" id="allCount">0</span></h2>
     <div class="filter-bar">
       <input type="text" id="filterInput" placeholder="Поиск / фильтр профилей…" autocomplete="off">
       <span class="meta" id="filterMeta"></span>

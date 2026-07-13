@@ -219,9 +219,6 @@ function mountSessionsRoutes(app) {
     try {
       const ok = await deleteHermesSession(profile, id);
       if (ok) {
-        // Invalidate caches so next list reflects the deletion
-        invalidateProfilesResponseCache();
-        sessionsCache.delete(profile);
         res.json({ profile, session_id: id, status: 'deleted' });
       } else {
         res.status(500).json({ error: 'failed to delete session' });
@@ -229,6 +226,9 @@ function mountSessionsRoutes(app) {
     } catch (err) {
       log.error('delete session error', {error: err.message || String(err)});
       res.status(500).json({ error: 'failed to delete session' });
+    } finally {
+      invalidateProfilesResponseCache();
+      sessionsCache.delete(profile);
     }
   });
 }

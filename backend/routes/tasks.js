@@ -4,6 +4,8 @@ const log = require('../services/logger');
 const { KANBAN_BOARDS_DIR } = require('../config');
 const { getDb } = require('../services/sqlite');
 const { hermesKanbanBlock, hermesKanbanUnblock, hermesKanbanReassign, hermesKanbanArchive } = require('../services/hermes-cli');
+const { listProfiles } = require('../services/profiles');
+const { profileCache } = require('../services/cache');
 
 function mountTasksRoutes(app) {
   // Get full task details
@@ -144,6 +146,12 @@ function mountTasksRoutes(app) {
     }
     if (!/^[a-zA-Z0-9_-]+$/.test(assignee)) {
       res.status(400).json({ error: 'invalid assignee format' });
+      return;
+    }
+    // Verify assignee profile exists
+    const profiles = listProfiles(profileCache);
+    if (!profiles.find(p => p.name === assignee)) {
+      res.status(400).json({ error: 'assignee profile not found' });
       return;
     }
     try {

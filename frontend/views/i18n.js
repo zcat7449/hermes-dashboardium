@@ -410,7 +410,7 @@
     // Update static HTML elements with data-i18n attributes
     document.querySelectorAll('[data-i18n]').forEach(el => {
       const key = el.getAttribute('data-i18n');
-      el.firstChild.nodeValue = t(key) + ' ';
+      el.textContent = t(key);
     });
     document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
       const key = el.getAttribute('data-i18n-placeholder');

@@ -5,7 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const http = require('http');
 const log = require('./services/logger');
-const { PORT, HOST, FRONTEND_DIR, PG_IMPORT_FROM_SQLITE, PROFILES_DIR } = require('./config');
+const { PORT, HOST, FRONTEND_DIR, PG_IMPORT_FROM_SQLITE, PROFILES_DIR, HERMES_BIN } = require('./config');
 const { initPostgres, isPgAvailable, query, getPool } = require('./db');
 const { closeDbs } = require('./services/sqlite');
 const { importSessionsFromSqlite } = require('./services/pg-import');
@@ -84,7 +84,21 @@ if (require.main === module) {
     if (importResult.imported > 0) {
       log.info('sqlite import', {imported: importResult.imported, files: importResult.files.length});
     }
+    // Verify hermes CLI is available
+    try {
+      require('child_process').execFileSync(HERMES_BIN, ['--version'], {timeout: 5000});
+    } catch (e) {
+      log.warn('hermes CLI not found or not executable', {bin: HERMES_BIN, error: e.message});
+    }
     const server = http.createServer(app);
+    server.on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        log.error('port already in use', {port: PORT, host: HOST});
+        process.exit(1);
+      }
+      log.error('server error', {error: err.message || String(err), code: err.code});
+      throw err;
+    });
     initWebSocket(server);
     server.listen(PORT, HOST, () => {
       log.info('server started', {host: HOST, port: PORT});
