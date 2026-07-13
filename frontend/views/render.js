@@ -157,6 +157,10 @@
       `);
     });
     const gridCols = filled === 0 ? 1 : filled;
+    // P2 fix: defensive null-checks on D.els.* — if a script load order issue
+    // or a profile-modal-overlay drift mutates the DOM, this would throw and
+    // break the entire top-grid render. Defensive defaults avoid the crash.
+    if (!D.els.topGrid) return;
     if (filled === 0) {
       D.els.topGrid.style.gridTemplateRows = '1fr';
       frag.push(`<div class="card empty-slot" style="grid-column: 1 / -1; grid-row: 1 / -1; height: 100%;"><button class="assign-btn" data-action="pick">${t('assign_btn')}</button></div>`);
@@ -165,7 +169,7 @@
     }
     D.els.topGrid.style.gridTemplateColumns = 'repeat(' + gridCols + ', 1fr)';
     D.els.topGrid.innerHTML = frag.join('');
-    D.els.leadersCount.textContent = filled + '/' + C.LEADER_SLOTS;
+    if (D.els.leadersCount) D.els.leadersCount.textContent = filled + '/' + C.LEADER_SLOTS;
   }
 
   function renderBottom() {
@@ -175,8 +179,9 @@
     // Filter watched to only existing profiles
     D.watched = D.watched.filter(n => allNames.includes(n));
     const list = D.watched.filter(n => !leaderSet.has(n));
-    D.els.allCount.textContent = D.watched.length + '/' + D.MAX_WATCHED;
-    D.els.filterMeta.textContent = '';
+    // P2 fix: defensive null-checks (see renderTop)
+    if (D.els.allCount) D.els.allCount.textContent = D.watched.length + '/' + D.MAX_WATCHED;
+    if (D.els.filterMeta) D.els.filterMeta.textContent = '';
     if (list.length === 0) {
       D.els.bottomGrid.innerHTML = `<div class="card empty-slot" style="grid-column: 1/-1; cursor: default; min-height: 80px; align-items: center; justify-content: center; color: rgba(224,224,224,0.4);">
         <button class="assign-btn" data-action="add-watched">+ ${t('add_watched') || 'Добавить профили'}</button>
@@ -317,6 +322,17 @@
   }
 
   function renderAll() {
+    // P2 fix: don't blow away the typing indicator while a chat response is
+    // pending. renderAll() rebuilds the top grid from scratch, which would
+    // remove the .msg-typing node that the 1s tick in startTypingTimer
+    // is updating. Defer the re-render until the typing tick lands.
+    if (D._typingTimers && Object.keys(D._typingTimers).length > 0) {
+      requestAnimationFrame(() => {
+        if (D._typingTimers && Object.keys(D._typingTimers).length > 0) {
+          requestAnimationFrame(() => renderAll());
+        }
+      });
+    }
     // P1 fix: preserve focus + cursor + partially-typed text across re-render.
     // Save currently focused element by data-chat-input (or other selector) and
     // restore focus + selectionStart/End after re-render.

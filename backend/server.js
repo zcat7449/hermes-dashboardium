@@ -14,16 +14,59 @@ const { initWebSocket, closeWebSocket } = require('./services/websocket');
 
 // Server version — changes on every deploy. Frontend polls /api/version and reloads
 // automatically when it changes. This eliminates the need for manual Ctrl+Shift+R.
-const SERVER_VERSION = process.env.DASHBOARDIUM_VERSION ||
-  (() => {
-    // Auto-derive from mtime of server.js — every deploy touches this file.
+//
+// BUG 4 fix: previously SERVER_VERSION was a const evaluated once at module
+// load. If the process ran for hours/days and the source file was edited
+// (e.g. a re-deploy that updated server.js in place), the version string
+// stayed pinned to the original mtime. The new design:
+//   1) getServerVersion() recomputes on each call by re-statting the file
+//      AND (optionally) re-running `git rev-parse` to pick up commit changes
+//   2) results are cached for 5s — short enough that a deploy is visible
+//      within a few seconds, long enough that the per-request cost is
+//      amortized to ~zero
+//   3) DASHBOARDIUM_VERSION env var still wins when set (operator override
+//      for canary / blue-green deploys)
+const SERVER_VERSION_CACHE_TTL_MS = 5000;
+let _serverVersionCache = { value: null, expiresAt: 0 };
+
+function getServerVersion() {
+  const now = Date.now();
+  if (_serverVersionCache.value !== null && _serverVersionCache.expiresAt > now) {
+    return _serverVersionCache.value;
+  }
+  // 1) env override wins (operator-pinned)
+  if (process.env.DASHBOARDIUM_VERSION) {
+    _serverVersionCache = { value: process.env.DASHBOARDIUM_VERSION, expiresAt: now + SERVER_VERSION_CACHE_TTL_MS };
+    return _serverVersionCache.value;
+  }
+  // 2) try to combine mtime + commit. Commit is preferred when available
+  //    (it survives file rewrites that don't change the SHA), mtime
+  //    catches uncommitted-but-deployed changes.
+  let value = null;
+  try {
+    const st = fs.statSync(__filename);
+    const mtimePart = st.mtime.getTime().toString(36);
+    let commitPart = '';
     try {
-      const st = fs.statSync(__filename);
-      return st.mtime.getTime().toString(36);
-    } catch {
-      return Date.now().toString(36);
-    }
-  })();
+      const { execFileSync } = require('child_process');
+      const sha = execFileSync('git', ['-C', path.dirname(__filename), 'rev-parse', '--short', 'HEAD'], {
+        timeout: 500,
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }).toString().trim();
+      if (sha) commitPart = '-' + sha;
+    } catch { /* git not available or not a repo — fall back to mtime only */ }
+    value = mtimePart + commitPart;
+  } catch {
+    value = Date.now().toString(36);
+  }
+  _serverVersionCache = { value, expiresAt: now + SERVER_VERSION_CACHE_TTL_MS };
+  return value;
+}
+
+// Backward-compat: keep the original `SERVER_VERSION` symbol as a function
+// call so existing references in this file (DEPLOYED_AT log, headers, etc.)
+// still resolve. New code should call getServerVersion() directly.
+const SERVER_VERSION = getServerVersion();
 const DEPLOYED_AT = new Date().toISOString();
 log.info('server version', { version: SERVER_VERSION, deployedAt: DEPLOYED_AT });
 
@@ -78,6 +121,10 @@ app.use('/public', express.static(path.join(FRONTEND_DIR, 'public'), { etag: fal
 app.get('/', (req, res) => {
   // Inject <meta name="server-version"> so the frontend knows which version is deployed
   // without a roundtrip. Combined with /api/version polling, this gives instant auto-reload.
+  // BUG 4 fix: use the dynamic getServerVersion() (recomputes every 5s)
+  // instead of the module-level constant. A long-running process that
+  // gets a deploy will pick up the new version on the next request
+  // after the cache TTL expires, without a server restart.
   const indexPath = path.join(FRONTEND_DIR, 'views', 'index.html');
   let html;
   try {
@@ -85,7 +132,8 @@ app.get('/', (req, res) => {
   } catch (e) {
     return res.status(500).send('index.html not found');
   }
-  const metaTag = `<meta name="server-version" content="${SERVER_VERSION}">`;
+  const liveVersion = getServerVersion();
+  const metaTag = `<meta name="server-version" content="${liveVersion}">`;
   if (html.includes('name="server-version"')) {
     html = html.replace(/<meta name="server-version"[^>]*>/, metaTag);
   } else {
@@ -93,8 +141,9 @@ app.get('/', (req, res) => {
   }
   // Replace __SERVER_VERSION__ placeholder in <script src="...v=__SERVER_VERSION__"> tags
   // so the browser always sees a version that changes on every deploy — no manual ?v= bump.
-  html = html.replace(/__SERVER_VERSION__/g, SERVER_VERSION);
+  html = html.replace(/__SERVER_VERSION__/g, liveVersion);
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.setHeader('X-Server-Version', liveVersion);
   res.send(html);
 });
 // views/* must always be fresh — cache-bust ?v= handles the rest
@@ -107,13 +156,15 @@ app.use((req, res, next) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
-  res.setHeader('X-Server-Version', SERVER_VERSION);
+  res.setHeader('X-Server-Version', getServerVersion());
   next();
 });
 
 // Version endpoint — frontend polls this to detect deploys and auto-reload.
+// BUG 4 fix: serve the dynamic version so deploys are visible without
+// a server restart.
 app.get('/api/version', (req, res) => {
-  res.json({ version: SERVER_VERSION, deployedAt: DEPLOYED_AT });
+  res.json({ version: getServerVersion(), deployedAt: DEPLOYED_AT });
 });
 
 // API routes — behind auth

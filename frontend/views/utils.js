@@ -11,6 +11,20 @@
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
+  // P2 fix: centralized debug logger. Set window.DASHBOARD_DEBUG=1 in DevTools
+  // console to enable verbose logging. Production builds default to silent
+  // so console.log/warn/error never leak to end users.
+  const debugLog = function () {
+    if (typeof window !== 'undefined' && window.DASHBOARD_DEBUG) {
+      try { console.log.apply(console, ['[dash]'].concat([].slice.call(arguments))); } catch {}
+    }
+  };
+  const debugWarn = function () {
+    if (typeof window !== 'undefined' && window.DASHBOARD_DEBUG) {
+      try { console.warn.apply(console, ['[dash]'].concat([].slice.call(arguments))); } catch {}
+    }
+  };
+
   function fmtUptime(sec) {
     sec = Math.max(0, Math.floor(sec || 0));
     const h = Math.floor(sec / 3600);
@@ -118,5 +132,7 @@
     normProfile,
     getEffectiveUptime,
     fmtUsageStr,
+    debugLog,
+    debugWarn,
   };
 })();

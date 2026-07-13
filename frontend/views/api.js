@@ -126,14 +126,36 @@
       body: JSON.stringify(body),
     }, C.CHAT_TIMEOUT_MS);
   }
-
   function lsKey(name) { return 'dash.sessions.v1.' + name; }
-  function lsLoad(name) {
-    try { return JSON.parse(localStorage.getItem(lsKey(name)) || '[]') || []; }
-    catch (e) { return []; }
-  }
+  // P2 fix: localStorage quota handling. If setItem throws QuotaExceededError
+  // (e.g. profile has 10MB of session titles), evict OLDEST key for this profile
+  // and retry. If still fails, fall back to in-memory Map so the UI keeps working.
+  const _memFallback = new Map();
   function lsSave(name, list) {
-    try { localStorage.setItem(lsKey(name), JSON.stringify(list)); } catch (e) {}
+    const key = lsKey(name);
+    try {
+      localStorage.setItem(key, JSON.stringify(list));
+    } catch (e) {
+      // Quota exceeded — try to evict some old sessions from this profile's key
+      if (e && (e.name === 'QuotaExceededError' || e.code === 22)) {
+        try {
+          // Compact: keep only the 50 most recent items
+          const trimmed = Array.isArray(list) ? list.slice(-50) : [];
+          localStorage.setItem(key, JSON.stringify(trimmed));
+        } catch (e2) {
+          // Still failing — fall back to in-memory map
+          _memFallback.set(key, list);
+        }
+      } else {
+        _memFallback.set(key, list);
+      }
+    }
+  }
+  function lsLoad(name) {
+    const key = lsKey(name);
+    if (_memFallback.has(key)) return _memFallback.get(key);
+    try { return JSON.parse(localStorage.getItem(key) || '[]') || []; }
+    catch (e) { return []; }
   }
   function localCreate(name) {
     const list = lsLoad(name);
@@ -349,7 +371,7 @@
     }
 
     ws.onopen = () => {
-      console.log('ws: connected');
+      U.debugLog('ws: connected');
       wsReconnectAttempt = 0;
       D.connState = 'live';
       getRender().setConn('live', 'live · WS · ' + Object.keys(D.profilesByName).length);
@@ -368,7 +390,7 @@
     };
 
     ws.onclose = (event) => {
-      console.log('ws: disconnected', event.code, event.reason);
+      U.debugLog('ws: disconnected', event.code, event.reason);
       // P1 fix: stop ALL typing timers on WS disconnect so a 120s false
       // "model didn't answer" warning never appears for a connection that's dead.
       if (window.Dashboard && window.Dashboard.Actions && window.Dashboard.Actions.stopAllTypingTimers) {
@@ -430,7 +452,7 @@
     if (wsReconnectTimer) clearTimeout(wsReconnectTimer);
     const delay = C.WS_RECONNECT_DELAYS[Math.min(wsReconnectAttempt, C.WS_RECONNECT_DELAYS.length - 1)];
     wsReconnectAttempt++;
-    console.log('ws: reconnecting in ' + delay + 'ms (attempt ' + wsReconnectAttempt + ')');
+    U.debugLog('ws: reconnecting in ' + delay + 'ms (attempt ' + wsReconnectAttempt + ')');
     getRender().setConn('error', 'reconnecting · ' + wsReconnectAttempt + ' · ' + delay + 'ms');
     wsReconnectTimer = setTimeout(() => {
       wsConnect();
@@ -439,7 +461,7 @@
 
   function startRestPolling() {
     if (wsPollFallbackTimer) return; // already running
-    console.log('ws: starting REST polling fallback');
+    U.debugLog('ws: starting REST polling fallback');
     restPollTick(); // immediate first poll
     wsPollFallbackTimer = setInterval(restPollTick, C.POLL_MS);
   }
@@ -524,8 +546,11 @@
         }
 
         const filled = D.leaders.filter(Boolean).length;
-        D.els.leadersCount.textContent = filled + '/' + C.LEADER_SLOTS;
-        D.els.allCount.textContent = Object.keys(D.profilesByName).length;
+        // P2 fix: null-check D.els.* — if a script load order issue or DOM
+        // mutation removed the elements, this would throw and break the
+        // entire profiles handler. Defensive defaults avoid the crash.
+        if (D.els.leadersCount) D.els.leadersCount.textContent = filled + '/' + C.LEADER_SLOTS;
+        if (D.els.allCount) D.els.allCount.textContent = Object.keys(D.profilesByName).length;
         getRender().setConn('live', 'live · WS · ' + Object.keys(map).length);
         D.lastError = '';
         break;

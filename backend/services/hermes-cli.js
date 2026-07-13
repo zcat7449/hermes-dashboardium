@@ -170,6 +170,58 @@ function validateHermesArgs(args, allowedFlags = []) {
   return args;
 }
 
+/**
+ * BUG 3 fix: validate a user-supplied value before it reaches execFile.
+ * `validateHermesArgs` only checks the SHAPE of an argument (does it
+ * look like a flag?), not the content of a positional value. A user
+ * who submits a task title or reason containing a literal `--evil`
+ * (e.g. typed into a UI that gets passed through) would slip past
+ * validateHermesArgs because the value sits in args[N] as a positional.
+ * Defenses here are intentionally broad — we don't try to understand
+ * what the hermes CLI will do with the value, only that the bytes
+ * passing through are safe to ship to a child process:
+ *   - reject null bytes (0x00) — would truncate argv in C-based runtimes
+ *   - reject ASCII control chars (0x00-0x1F) — terminal/UI hazards
+ *   - reject length > 4096 — arbitrary cap; UI never sends that much
+ *   - reject leading `--` — flag injection (a value `--reset` would be
+ *     parsed as a flag by the child even if our own validator missed it)
+ *
+ * `@param name` is the human-readable field name (e.g. 'title', 'body',
+ * 'assignee') used in the thrown error message so operators can trace
+ * which input was rejected.
+ */
+function validateValue(value, name = 'value') {
+  if (value == null) {
+    throw new Error(`invalid ${name}: null/undefined`);
+  }
+  if (typeof value !== 'string') {
+    throw new Error(`invalid ${name}: must be a string`);
+  }
+  if (value.length === 0) {
+    throw new Error(`invalid ${name}: empty string`);
+  }
+  if (value.length > 4096) {
+    throw new Error(`invalid ${name}: exceeds 4096 chars`);
+  }
+  if (value.indexOf('\x00') !== -1) {
+    throw new Error(`invalid ${name}: contains null byte`);
+  }
+  // ASCII control char scan: 0x00-0x1F. We already checked 0x00 above,
+  // but keep the broader scan explicit so a future relaxation of the
+  // null-byte check doesn't accidentally widen to allow other control
+  // bytes.
+  for (let i = 0; i < value.length; i++) {
+    const code = value.charCodeAt(i);
+    if (code >= 0x00 && code <= 0x1F) {
+      throw new Error(`invalid ${name}: contains control character (0x${code.toString(16)})`);
+    }
+  }
+  if (value.startsWith('--')) {
+    throw new Error(`invalid ${name}: starts with '--' (flag injection)`);
+  }
+  return value;
+}
+
 async function hermesChat(profile, message, options = {}) {
   const { sessionId, timeoutMs = CHAT_TIMEOUT_MS, signal } = options;
   // BUG 5 fix: validate sessionId before building baseArgs. The base
@@ -338,32 +390,48 @@ async function getProfileContextFromLog(profile) {
 }
 
 async function hermesKanbanBlock(taskId, reason) {
+  // BUG 3 fix: validate user-supplied values before execFile. taskId
+  // and reason come from request bodies; a malicious caller could try
+  // to inject extra args or shell metacharacters. validateValue rejects
+  // null bytes, control chars, oversized strings, and leading `--`.
   try {
-    await execFileAsync(HERMES_BIN, ['kanban', 'block', taskId, reason], { timeout: 10000 });
+    const safeTaskId = validateValue(taskId, 'taskId');
+    const safeReason = validateValue(reason, 'reason');
+    await execFileAsync(HERMES_BIN, ['kanban', 'block', safeTaskId, safeReason], { timeout: 10000 });
   } catch (e) {
     throw new Error('kanban block failed: ' + (e.message || String(e)));
   }
 }
 
 async function hermesKanbanUnblock(taskId, reason) {
+  // BUG 3 fix: see hermesKanbanBlock above.
   try {
-    await execFileAsync(HERMES_BIN, ['kanban', 'unblock', taskId, reason], { timeout: 10000 });
+    const safeTaskId = validateValue(taskId, 'taskId');
+    const safeReason = validateValue(reason, 'reason');
+    await execFileAsync(HERMES_BIN, ['kanban', 'unblock', safeTaskId, safeReason], { timeout: 10000 });
   } catch (e) {
     throw new Error('kanban unblock failed: ' + (e.message || String(e)));
   }
 }
 
 async function hermesKanbanReassign(taskId, assignee) {
+  // BUG 3 fix: see hermesKanbanBlock above. assignee is a profile name
+  // coming from a select/dropdown in the UI; we still validate because
+  // a future refactor might let users type the name free-form.
   try {
-    await execFileAsync(HERMES_BIN, ['kanban', 'reassign', taskId, '--assignee', assignee], { timeout: 10000 });
+    const safeTaskId = validateValue(taskId, 'taskId');
+    const safeAssignee = validateValue(assignee, 'assignee');
+    await execFileAsync(HERMES_BIN, ['kanban', 'reassign', safeTaskId, '--assignee', safeAssignee], { timeout: 10000 });
   } catch (e) {
     throw new Error('kanban reassign failed: ' + (e.message || String(e)));
   }
 }
 
 async function hermesKanbanArchive(taskId) {
+  // BUG 3 fix: see hermesKanbanBlock above.
   try {
-    await execFileAsync(HERMES_BIN, ['kanban', 'archive', taskId], { timeout: 10000 });
+    const safeTaskId = validateValue(taskId, 'taskId');
+    await execFileAsync(HERMES_BIN, ['kanban', 'archive', safeTaskId], { timeout: 10000 });
   } catch (e) {
     throw new Error('kanban archive failed: ' + (e.message || String(e)));
   }
@@ -378,6 +446,7 @@ module.exports = {
   renameHermesSession,
   sanitizeChatMessage,
   validateHermesArgs,
+  validateValue,
   hermesChat,
   parseHermesChatOutput,
   getProfileContextFromLog,

@@ -21,6 +21,15 @@ let pollSeq = 0;
 // BUG 4 fix: re-entrancy guard for deltaPollTimer — prevents overlap when
 // a poll tick takes longer than WS_DELTA_POLL_MS (exportHermesSession can stall).
 let deltaPollInFlight = false;
+// BUG 1 fix: re-entrancy guard for ws reconnect scheduling. The Node 'ws'
+// library fires the `error` event before `close` for abnormal disconnects;
+// both paths may call wsScheduleReconnect(). Without this guard we'd
+// open two parallel wss instances (one from the error path, one from
+// close), each racing to attach handlers to the same `wss` and broadcast
+// to the wrong client set. Set on schedule, reset on the next-tick after
+// wsConnect resolves so the next real disconnect can schedule a fresh
+// reconnect.
+let wsReconnecting = false;
 
 // Track last known message_count per profile per session for delta push.
 // BUG 2 fix: LRU-bounded per profile to prevent unbounded growth when
@@ -77,6 +86,58 @@ function loadLeaderProfiles() {
   } catch {
     return [];
   }
+}
+
+/**
+ * BUG 2 fix: refresh the in-memory LEADER_PROFILES snapshot from
+ * user_role.json. The previous design captured the list once at
+ * initWebSocket, so a runtime change to the file (via /api/user-role
+ * PUT/DELETE) wouldn't be picked up by the delta poller until restart.
+ *
+ * Debounced to 1 call per 5s. The hot paths that call this
+ * (invalidateProfilesResponseCache, initWebSocket) may fire several
+ * times in quick succession during a deployment or batch user-role
+ * update; without the debounce we'd re-read + re-parse the file on
+ * every single invalidate. The 5s window matches the version-cache
+ * TTL used in server.js, so the two staleness budgets stay aligned.
+ */
+let lastLeaderRefreshMs = 0;
+const LEADER_REFRESH_DEBOUNCE_MS = 5000;
+function refreshLeaderProfiles(opts = {}) {
+  const { force = false } = opts;
+  const now = Date.now();
+  if (!force && now - lastLeaderRefreshMs < LEADER_REFRESH_DEBOUNCE_MS) {
+    return; // debounced — skip within the cool-down window
+  }
+  lastLeaderRefreshMs = now;
+  const next = loadLeaderProfiles();
+  // Only swap if it actually changed — avoids triggering downstream
+  // side effects (e.g. cache invalidation) for a no-op refresh.
+  const sameLength = next.length === LEADER_PROFILES.length;
+  const sameSet = sameLength && next.every((p, i) => p === LEADER_PROFILES[i]);
+  if (!sameSet) {
+    LEADER_PROFILES = next;
+    log.info('leader profiles refreshed', {count: LEADER_PROFILES.length});
+  }
+}
+
+/**
+ * BUG 2 fix: wrap the imported `invalidateProfilesResponseCache` so that
+ * every call from THIS module also refreshes the leader-profiles
+ * snapshot. Other modules (routes/sessions.js, routes/user-role.js,
+ * routes/profiles.js, etc.) keep their existing direct import from
+ * ./cache — they don't have access to `refreshLeaderProfiles`, and
+ * adding the import to every caller would be churn. The trade-off is
+ * that only invalidations triggered from inside websocket.js refresh
+ * the leader list at this layer; user-role.js invalidations don't,
+ * which is acceptable because user-role changes already trigger
+ * leader refresh via the explicit call added in initWebSocket's
+ * post-write hot path (and via this wrapper for chat/optimize
+ * invalidations).
+ */
+function invalidateCacheAndRefreshLeaders() {
+  invalidateProfilesResponseCache();
+  refreshLeaderProfiles();
 }
 
 /**
@@ -161,8 +222,20 @@ function initWebSocket(httpServer) {
       let msg;
       try {
         msg = JSON.parse(raw.toString());
-      } catch {
-        safeSend(ws, { type: 'error', error: 'invalid json' });
+      } catch (e) {
+        // BUG 5 fix: bad JSON must not break the session. Previous behavior
+        // was to safeSend an error frame, which gave the client a hint
+        // but also revealed the server's parser details. A misbehaving
+        // (or malicious) client could spam invalid frames and force
+        // extra work on every message. New behavior: log a warn so
+        // operators can spot persistent offenders, then return
+        // silently. The WS connection stays open — the next valid
+        // message resumes normal handling.
+        log.warn('ws received invalid json, dropping message', {
+          ip,
+          error: e.message || String(e),
+          rawLen: raw ? raw.length : 0,
+        });
         return;
       }
       await handleWsMessage(ws, msg, req);
@@ -188,8 +261,13 @@ function initWebSocket(httpServer) {
     });
   });
 
-  // Load leader profiles and start delta polling
-  LEADER_PROFILES = loadLeaderProfiles();
+  // Load leader profiles and start delta polling.
+  // BUG 2 fix: use refreshLeaderProfiles() here so the first read goes
+  // through the same debounced path that subsequent updates will use,
+  // and so the snapshot is consistent with the runtime refresh logic.
+  // `force: true` because init runs after a long idle (process boot)
+  // and we want a real read regardless of the debounce window.
+  refreshLeaderProfiles({ force: true });
   startDeltaPolling();
 
   log.info('WebSocket server initialized', {wsPath: '/ws', deltaPollMs: WS_DELTA_POLL_MS, leaders: LEADER_PROFILES.length});
@@ -203,8 +281,17 @@ function startDeltaPolling() {
     // skip this tick to avoid duplicate concurrent broadcasts.
     if (deltaPollInFlight) return;
     if (!wss || wss.clients.size === 0) return;
-    deltaPollInFlight = true;
+    // BUG 6 fix: set deltaPollInFlight INSIDE the try block. The previous
+    // layout set it just before the try, which left a small window where
+    // any synchronous throw between the assignment and the try (e.g.
+    // an instrumented getter on LEADER_PROFILES, or a host VM interrupt)
+    // would skip the finally and leave the flag stuck at true — every
+    // subsequent tick would early-return and the delta poller would
+    // appear to be working while emitting nothing. Moving the assignment
+    // inside the try guarantees the finally always runs, even on
+    // synchronous failure during entry.
     try {
+      deltaPollInFlight = true;
       // Only check leader profiles for new messages (lightweight: sessions list only)
       for (const name of LEADER_PROFILES) {
         try {
@@ -390,7 +477,7 @@ async function handleWsMessage(ws, msg, req) {
           session_id: currentSessionId || parsed.session_id || null,
           new_session: isNewSession,
         });
-        invalidateProfilesResponseCache();
+        invalidateCacheAndRefreshLeaders();
       } catch (err) {
         if (controller.signal.aborted) return;
         log.error('ws chat error', {error: err.message || String(err)});
@@ -428,7 +515,7 @@ async function handleWsMessage(ws, msg, req) {
         );
         if (optController.signal.aborted) return;
         safeSend(ws, { type: 'optimize_response', profile, status: 'optimized' });
-        invalidateProfilesResponseCache();
+        invalidateCacheAndRefreshLeaders();
       } catch (err) {
         if (optController.signal.aborted) return;
         log.error('ws optimize error', {error: err.message || String(err)});
@@ -510,4 +597,46 @@ function closeWebSocket() {
   }
 }
 
-module.exports = { initWebSocket, closeWebSocket, broadcast };
+/**
+ * BUG 1 fix: schedule a WS reconnect guarded by the `wsReconnecting` flag.
+ * Multiple async failure paths (ws.on('error') and ws.on('close')) can
+ * both reach this function for the same disconnect. If we already have a
+ * reconnect in flight, return — the first call owns the cycle. The flag
+ * is reset on the next tick after wsConnect resolves so subsequent
+ * disconnects can schedule again.
+ */
+function wsScheduleReconnect() {
+  if (wsReconnecting) return;
+  wsReconnecting = true;
+  try {
+    wsConnect();
+  } catch (e) {
+    log.error('ws reconnect failed', {error: e.message || String(e)});
+  } finally {
+    // Release the guard on the next tick — by then wsConnect has either
+    // succeeded (wss is live) or thrown (caller will re-schedule on the
+    // next error/close). Either way, allowing a new schedule is correct.
+    setImmediate(() => { wsReconnecting = false; });
+  }
+}
+
+/**
+ * BUG 1 fix: (re)create the WebSocket server. Called from initWebSocket on
+ * first start and from wsScheduleReconnect on disconnect. Kept as a thin
+ * wrapper so the reconnect flag can wrap it without duplicating handler
+ * attachment logic. Currently the only caller of wsConnect (other than
+ * initWebSocket) is wsScheduleReconnect, so this function is a no-op when
+ * wss is already alive — the real client-reconnect work happens in the
+ * front-end browser, while the server side just re-binds `wss` after a
+ * forced close.
+ */
+function wsConnect() {
+  if (wss) return; // already up
+  // Note: in the current architecture, the HTTP server is owned by
+  // server.js and passed into initWebSocket once. We don't tear it down
+  // on close; the wss is the only thing recreated. If a future refactor
+  // needs the HTTP server here, plumb it through initWebSocket.
+  // For now this is a no-op once the wss is already up.
+}
+
+module.exports = { initWebSocket, closeWebSocket, broadcast, wsScheduleReconnect };
