@@ -123,11 +123,23 @@
     D._sending.add(name);
     input.disabled = true;
     input.value = '';
-    R.appendChat(name, 'you', text);
+    const sid = D.activeSessionMap[name];
+    R.appendChat(name, 'you', text, sid);
     // Show typing indicator with live timer
     R.appendChat(name, 'typing', '…');
     startTypingTimer(name);
-    const sid = D.activeSessionMap[name];
+    // P2 fix: re-enable timeout to unlock input if WS response never arrives.
+    // Without this, a broken WS connection leaves the input permanently disabled.
+    const sendTimeout = setTimeout(() => {
+      if (D._sending.has(name)) {
+        D._sending.delete(name);
+        const i = D.els.topGrid.querySelector(`input[data-chat-input="${CSS.escape(name)}"]`);
+        if (i) i.disabled = false;
+        R.removeLastChat(name, 'typing');
+        stopTypingTimer(name);
+        R.appendChat(name, 'bot', '⚠ no response (timeout)');
+      }
+    }, 30000);
     // Try WebSocket first
     let wsOk = false;
     try {
@@ -136,10 +148,30 @@
       U.debugWarn('wsSend error', e);
     }
     if (wsOk) {
-      // Response will come via WS onmessage → handleWsMessage
-      // Keep typing indicator + timer running until WS response arrives
-      D._sending.delete(name);
-      input.disabled = false;
+      // Response will come via WS onmessage → handleWsMessage (which will call _sending.delete)
+      // Cancel the timeout if it was already cleared by WS response.
+      if (D._sending.has(name)) {
+        // WS response already came in
+        clearTimeout(sendTimeout);
+        D._sending.delete(name);
+        input.disabled = false;
+      } else {
+        // Leave input disabled; the timeout will clean up if response never arrives.
+        // Also listen for the next message from this profile to clear it.
+        const onMsg = (ev) => {
+          try {
+            const m = JSON.parse(ev.data);
+            if (m && m.type === 'chat' && m.profile === name) {
+              clearTimeout(sendTimeout);
+              D._sending.delete(name);
+              input.disabled = false;
+              ws.removeEventListener('message', onMsg);
+            }
+          } catch (e) {}
+        };
+        const ws = A.getWs && A.getWs();
+        if (ws) ws.addEventListener('message', onMsg);
+      }
       return;
     }
     // Fallback to REST

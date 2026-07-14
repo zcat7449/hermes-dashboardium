@@ -240,7 +240,9 @@
           if (m.role === 'user' || m.role === 'assistant') {
             const text = m.content || '';
             if (text) {
-              fresh.push({ role: m.role === 'user' ? 'you' : 'bot', text, ts: (m.timestamp || 0) * 1000 });
+              // P2 fix: tag each loaded message with its session id so that
+              // session switching can filter the log per-session.
+              fresh.push({ role: m.role === 'user' ? 'you' : 'bot', text, ts: (m.timestamp || 0) * 1000, sessionId: sid });
             }
           }
         }
@@ -257,7 +259,7 @@
             if (text) {
               const key = ((m.timestamp || 0) * 1000) + '|' + text;
               if (!existingSet.has(key)) {
-                existing.push({ role: m.role === 'user' ? 'you' : 'bot', text, ts: (m.timestamp || 0) * 1000 });
+                existing.push({ role: m.role === 'user' ? 'you' : 'bot', text, ts: (m.timestamp || 0) * 1000, sessionId: sid });
                 existingSet.add(key);
               }
             }
@@ -562,7 +564,9 @@
         // Ensure chat log exists
         if (!D.chatLog[profile]) D.chatLog[profile] = [];
         // Append via appendChat — no DOM re-render, scroll preserved
-        getRender().appendChat(profile, role, text);
+        // Pass session_id explicitly so the message is tagged with the correct
+        // session even if the user switches sessions before the WS response arrives.
+        getRender().appendChat(profile, role, text, session_id);
         // Update session message count if we have it
         if (session_id) {
           const list = D.sessionsMap[profile] || [];
@@ -583,7 +587,7 @@
           clearInterval(D._typingTimers[profile]);
           delete D._typingTimers[profile];
         }
-        getRender().appendChat(profile, 'bot', String(response || ''));
+        getRender().appendChat(profile, 'bot', String(response || ''), session_id);
         if (new_session && session_id) {
           D.activeSessionMap[profile] = session_id;
           D.sessionsMap[profile] = D.sessionsMap[profile] || [];

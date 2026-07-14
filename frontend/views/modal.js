@@ -6,6 +6,8 @@
   const U = window.Dashboard.Utils;
   const A = window.Dashboard.API;
   const R = window.Dashboard.Render;
+  const I18n = window.Dashboard.I18n;
+  const t = I18n.t;
 
   function renderProfileModal() {
     if (!D.profileModalOpen) return;

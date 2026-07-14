@@ -296,6 +296,21 @@ main {
 .top-grid .card .chat .row {
   flex-shrink: 0;
 }
+/* ----- Custom scrollbars (P1 fix: all scrollable windows) ----- */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent) transparent;
+}
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: var(--accent);
+  border-radius: 4px;
+  border: 1px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover { background: var(--accent-hover, #5b9bff); }
+*::-webkit-scrollbar-corner { background: transparent; }
 .bottom-grid {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));

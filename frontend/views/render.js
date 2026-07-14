@@ -131,11 +131,16 @@
         return;
       }
       const log = D.chatLog[name] || [];
-      const logHtml = log.length === 0
+      // P2 fix: filter by active session. Without this, switching sessions
+      // would show messages from all sessions together.
+      const activeSid = D.activeSessionMap && D.activeSessionMap[name];
+      const filteredLog = activeSid
+        ? log.filter(m => m.sessionId === activeSid)
+        : log;
+      const logHtml = filteredLog.length === 0
         ? '<div class="empty">' + t('dialog_empty') + '</div>'
-        : log.slice(-20).map(m => `<div class="msg-${m.role}">${m.role === 'you' ? t('msg_you') : t('msg_bot')} ${U.esc(m.text)}</div>`).join('');
+        : filteredLog.slice(-20).map(m => `<div class="msg-${m.role}">${m.role === 'you' ? t('msg_you') : t('msg_bot')} ${U.esc(m.text)}</div>`).join('');
       const sessionList = renderSessionList(name);
-      const activeSid = D.activeSessionMap[name];
       const activeLabel = activeSid
         ? sessionDisplayName((D.sessionsMap[name] || []).find(x => x.id === activeSid) || { id: activeSid })
         : t('new_session_label');
@@ -216,9 +221,13 @@
     D.els.addLeaderDropdown.classList.add('open');
   }
 
-  function appendChat(name, role, text) {
+  function appendChat(name, role, text, sessionId) {
     if (!D.chatLog[name]) D.chatLog[name] = [];
-    D.chatLog[name].push({ role, text, ts: Date.now() });
+    // P2 fix: tag every chat log entry with the active session id so that
+    // session switching filters messages per-session. Without this, all
+    // messages from all sessions are visible at once.
+    const sid = sessionId || (D.activeSessionMap && D.activeSessionMap[name]);
+    D.chatLog[name].push({ role, text, ts: Date.now(), sessionId: sid });
     // P1 fix: cap by message count AND total bytes. Without byte cap, a
     // 5MB bot response × 100 messages = 500MB in RAM. Cap is per profile
     // and tracks estimated byte size.
@@ -232,6 +241,13 @@
     }
     log._totalBytes = Math.max(0, totalBytes);
     D.chatLog[name] = log;
+    // P2 fix: skip DOM append if the message belongs to a different session
+    // than the currently active one. Without this, a WS response that arrives
+    // after the user has switched sessions would render in the wrong session's
+    // chat log (race condition). The message is still stored in the data array
+    // so it appears when the user switches back to that session.
+    const activeSid = D.activeSessionMap && D.activeSessionMap[name];
+    if (sid && activeSid && sid !== activeSid) return;
     const logEl = D.els.topGrid.querySelector(`[data-chat-log="${CSS.escape(name)}"]`);
     if (logEl) {
       const empty = logEl.querySelector('.empty');
@@ -277,9 +293,14 @@
     const log = D.chatLog[name] || [];
     const logEl = D.els.topGrid.querySelector(`[data-chat-log="${CSS.escape(name)}"]`);
     if (logEl) {
-      logEl.innerHTML = log.length === 0
+      // P2 fix: filter by active session
+      const activeSid = D.activeSessionMap && D.activeSessionMap[name];
+      const filteredLog = activeSid
+        ? log.filter(m => m.sessionId === activeSid)
+        : log;
+      logEl.innerHTML = filteredLog.length === 0
         ? '<div class="empty">' + t('dialog_empty') + '</div>'
-        : log.map(m => `<div class="msg-${m.role}">${m.role === 'you' ? t('msg_you') : t('msg_bot')} ${U.esc(m.text)}</div>`).join('');
+        : filteredLog.map(m => `<div class="msg-${m.role}">${m.role === 'you' ? t('msg_you') : t('msg_bot')} ${U.esc(m.text)}</div>`).join('');
       // Always scroll to bottom on re-render so new messages are visible (Telegram-style).
       logEl.scrollTop = logEl.scrollHeight;
     }
