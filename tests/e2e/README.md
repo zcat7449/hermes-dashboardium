@@ -1,10 +1,11 @@
 # E2E Tests — Dashboardium
 
-**Stack:** Puppeteer (headless Chromium), Node.js ≥ 18, no backend dependencies.
+**Stack:** Puppeteer (headless Chromium), Node.js ≥ 18.
 
-These tests verify the **real user experience** in a real browser — they catch
-regressions that unit tests cannot: focus loss, real-time updates, WebSocket
-lifecycle, localStorage quota, render-on-data race conditions.
+These tests verify the **real user experience** by performing **real user
+actions** — `page.click()`, `page.type()`, `page.keyboard.press()`. No
+`page.evaluate()` workarounds for things the user actually does. If a button
+can't be clicked or doesn't produce the expected DOM change, the test **fails**.
 
 ## Quick start
 
@@ -22,8 +23,27 @@ npm run test:e2e
 npm run test:e2e:list
 
 # 5. Or run a single test by name
-npm run test:e2e:single chat-realtime
+npm run test:e2e:single ui-walkthrough
 ```
+
+## Test catalog
+
+Every test uses real user actions. No programmatic fallbacks.
+
+| # | Test | What it actually clicks |
+|---|------|------------------------|
+| 01 | `ui-walkthrough` | Header lang switcher, all leader cards' ✕/optimize/toggle buttons, #addLeaderBtn, #filterInput |
+| 02 | `add-leader` | Clicks #addLeaderBtn → clicks profile in dropdown → verifies card appears |
+| 03 | `remove-leader` | Clicks ✕ on a leader → verifies card disappears |
+| 04 | `chat-send` | Types in chat input → Enter, then again via Send button → waits for bot response |
+| 05 | `session-create-switch-delete` | Clicks + new session, types in different sessions, switches, deletes one |
+| 06 | `filter-profiles` | Types in #filterInput, verifies focus + value retained, filters cards |
+| 07 | `chat-typing-preserved` | Types in chat, waits 15s for renderAll, verifies value + focus preserved |
+| 08 | `collapse-expand-chat` | Clicks collapse ▾ → clicks again to expand |
+| 09 | `optimize` | Clicks optimize button → waits for it to disable then re-enable |
+| 10 | `escape-closes-dropdown` | Opens + dropdown → presses Escape → verifies closed |
+| 11 | `language-switcher` | Selects different language → verifies html.lang updates |
+| 12 | `stress-rapid-actions` | 50 rapid keystrokes, click jumps between inputs, rapid button mashing |
 
 ## Configuration
 
@@ -35,76 +55,47 @@ Environment variables (with defaults):
 | `DASHBOARDIUM_USER` | `admin` | HTTP Basic Auth username |
 | `DASHBOARDIUM_PASS` | `dashboardium` | HTTP Basic Auth password |
 
-## Test catalog
+## What these tests catch
 
-Each test maps to a specific regression we introduced and then fixed.
-
-| # | Test | Bug it guards against | Round |
-|---|------|----------------------|-------|
-| 1 | `leader-pick` | Dashboard renders, leader is selectable | baseline |
-| 2 | `chat-realtime` | P0: `if (added > 0) ReferenceError` silenced chat | R1 |
-| 3 | `session-switch` | P0: switching sessions kept old messages | R1 |
-| 4 | `search-focus` | R2 P1: search input lost focus on each keystroke | R2 |
-| 5 | `render-focus` | R2 P1: typing in chat input interrupted by renderAll | R2 |
-| 6 | `ws-reconnect` | R2 P1: typing timer kept ticking after WS disconnect | R2 |
-| 7 | `localstorage-quota` | R3 P2: dashboard crashed on QuotaExceededError | R3 |
-| 8 | `new-session` | R1 P0: `localCreate` not exported, + button broken | R1 |
-| 9 | `escape-modal` | R2 P1: Escape didn't close profile modal | R2 |
-| 10 | `task-modal` | R2 P1: reopening task modal left duplicate overlay | R2 |
-| 11 | `autoinject-version` | R1 P0: stale `?v=12` hardcoded → cache miss on deploy | R1 |
-| 12 | `drag-drop` | Verifies all 11 expected `window.Dashboard.*` exports | R1+R2 |
-
-## Output
-
-- Pass/fail printed per test
-- Total time, pass/fail count at the end
-- On failure: full stdout/stderr dumped, plus a screenshot in
-  `tests/e2e/screenshots/<test>-fail.png` for visual inspection
-
-## What these tests catch that unit tests don't
-
-- **Focus loss bugs**: typing in an input and the cursor jumping away
-- **Real-time WebSocket flow**: server push → DOM update with no manual reload
-- **Race conditions**: typing + broadcast delta poll + chat response interleaving
-- **State leaks**: localStorage + WebSocket reconnect + page reload
-- **User-visible regressions**: missing API exports, broken buttons, modal leaks
-
-## CI integration
-
-```yaml
-# .github/workflows/e2e.yml
-- name: Install Puppeteer
-  run: npm install --save-dev puppeteer
-
-- name: Start Dashboardium
-  run: systemctl start dashboardium
-
-- name: Wait for server
-  run: until curl -sf http://localhost:3010/api/health; do sleep 1; done
-
-- name: Run E2E tests
-  run: npm run test:e2e
-```
+- **Buttons that don't work** — if `page.click('#addLeaderBtn')` doesn't open the
+  dropdown, the test fails
+- **Focus loss** — typing in an input and the cursor jumping away
+- **State leaks** — switching sessions leaving stale messages
+- **Missing data attributes** — `data-action`, `data-name`, `data-chat-input`
+  must be on the right elements
+- **Render bugs** — if `renderAll` blows away user input during typing
+- **JS errors** — uncaught exceptions in any user-visible flow
 
 ## Adding a new test
 
-1. Copy `leader-pick.test.js` (simplest one) as a template
-2. Use helpers from `setup.js` — `gotoDashboard`, `selectLeader`, `sendChat`,
-   `waitForChatResponse`, `screenshot`
-3. Run with `node tests/e2e/your-test.test.js` for quick iteration
-4. Add to test catalog table above
+1. Copy `01-ui-walkthrough.test.js` as a template
+2. Use real `page.click()` / `page.type()` / `page.keyboard.press()` — no
+   `page.evaluate()` workarounds
+3. Use helpers from `setup.js` — `gotoDashboard`, `addLeader`, `sendChatByEnter`,
+   `removeLeader`, `toggleChat`, etc.
+4. Each step must verify visible state changed (selector, text, attribute)
+5. Run with `node tests/e2e/your-test.test.js` for quick iteration
+6. Add to test catalog table above
+
+## Output
+
+- Pass/fail per test
+- On failure: full stack trace + screenshot in `tests/e2e/screenshots/<test>-fail.png`
+- 3-minute timeout per test
 
 ## Troubleshooting
 
-**`net::ERR_CONNECTION_REFUSED` at startup** — Dashboardium isn't running.
-Start it: `cd backend && npm start`
+**`Could not find Chrome`** — Puppeteer expects v131 but only v149 is cached.
+The setup.js auto-detects v149 from `/root/.cache/puppeteer/chrome/`. If
+neither works, run `npx puppeteer browsers install chrome`.
 
-**`net::ERR_INVALID_AUTH` or 401** — Wrong credentials. Set
-`DASHBOARDIUM_USER` and `DASHBOARDIUM_PASS` env vars.
+**`net::ERR_CONNECTION_REFUSED`** — Dashboardium isn't running. Start it:
+`cd backend && npm start`
 
-**Tests pass locally but fail in CI** — Check that the dev server has the
-expected profiles (`rechelok`, `mlm` are typical). If not, the test will
-warn "profile not in leaders" and skip the chat-related assertions.
+**`401 Unauthorized`** — Wrong credentials. Set `DASHBOARDIUM_USER` /
+`DASHBOARDIUM_PASS`.
 
-**Screenshots are blank** — The Puppeteer `--disable-gpu` flag is required
-in some headless environments. Already set in `setup.js`.
+**Test passes but the action "doesn't actually work"** — Look at the
+screenshot. If the test does `page.click('#addLeaderBtn')` and the dropdown
+opens, but the user sees nothing, then either the CSS is broken or the test
+is using a stale cached version. Hard reload: `Ctrl+Shift+R`.
